@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*.local
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+*.log
+coverage
+# TypeScript composite build artifacts
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
