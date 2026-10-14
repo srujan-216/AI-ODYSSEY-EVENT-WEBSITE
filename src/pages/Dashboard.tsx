@@ -520,13 +520,14 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
         </p>
       </div>
 
-      {/* Actions */}
-      <div className="mt-7 grid gap-3 sm:grid-cols-2">
+      {/* Action — opening the sealed PDF is the only interaction. There is
+          NO online report submission; evaluation is handled offline. */}
+      <div className="mt-7">
         <a
           href={assignedCase.pdfPath}
           target="_blank"
           rel="noreferrer"
-          className="group inline-flex items-center justify-center gap-3 bg-stone-900 text-stone-50 py-4 font-display font-bold tracking-widest uppercase text-xs transition-colors hover:bg-red-600"
+          className="group w-full inline-flex items-center justify-center gap-3 bg-stone-900 text-stone-50 py-4 font-display font-bold tracking-widest uppercase text-xs transition-colors hover:bg-red-600"
           style={{
             clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
           }}
@@ -534,14 +535,20 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
           <ExternalLink size={14} /> Open sealed PDF
           <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
         </a>
-        <div
-          className="inline-flex items-center justify-center gap-3 bg-stone-50 border-2 border-stone-900 text-stone-900 py-4 font-display font-bold tracking-widest uppercase text-xs cursor-default"
-          style={{
-            clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
-          }}
-          title="Reports are evaluated offline by coordinators"
-        >
-          <FileSearch size={14} /> Submit report · offline
+      </div>
+
+      {/* Offline-only submission notice — no form, no endpoint, no upload. */}
+      <div className="mt-4 rounded-sm border border-red-600/60 bg-red-600/10 px-4 py-3 flex items-start gap-3">
+        <FileSearch size={14} className="text-red-600 mt-0.5 shrink-0" />
+        <div className="text-xs text-stone-800 leading-relaxed">
+          <div className="font-display font-bold tracking-widest uppercase text-red-700 text-[0.65rem]">
+            Reports are submitted offline
+          </div>
+          <p className="mt-1 font-serif italic text-stone-900">
+            This site does not accept written reports. Hand the final report
+            to a coordinator in person. Verified scores land on the public
+            leaderboard once coordinators record them.
+          </p>
         </div>
       </div>
 
