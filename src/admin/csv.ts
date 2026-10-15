@@ -65,8 +65,8 @@ export function parseCsv(text: string, existing: { team_name: string; track: Tra
     else row.errors.push(`track must be "junior" or "senior" (got "${raw.track ?? ''}")`)
 
     const caseNum = Number(caseRaw)
-    if (!caseRaw || !Number.isInteger(caseNum) || caseNum < 1 || caseNum > 5) {
-      row.errors.push('case_number must be an integer between 1 and 5')
+    if (!caseRaw || !Number.isInteger(caseNum) || caseNum < 1 || caseNum > 6) {
+      row.errors.push('case_number must be an integer between 1 and 6')
     }
 
     const score = Number(scoreRaw)

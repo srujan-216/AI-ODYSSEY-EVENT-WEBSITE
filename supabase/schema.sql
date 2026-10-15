@@ -56,7 +56,7 @@ create table if not exists public.team_assignments (
   team_name        text not null check (char_length(team_name) between 2 and 60),
   team_name_lower  text generated always as (lower(team_name)) stored,
   track            text not null check (track in ('junior','senior')),
-  case_number      int  not null check (case_number between 1 and 5),
+  case_number      int  not null check (case_number between 1 and 6),
   assigned_at      timestamptz not null default now()
 );
 
@@ -66,7 +66,7 @@ create unique index if not exists team_assignments_team_track_case_uq
 
 -- -----------------------------------------------------------------------------
 -- 3. assign_case() — atomic case assignment RPC
--- Assigns a requested case or a random still-unassigned case (1..5) for this team.
+-- Assigns a requested case or a random still-unassigned case (1..6) for this team.
 -- Uses an advisory transaction lock on (team + track) to prevent race conditions.
 -- -----------------------------------------------------------------------------
 create or replace function public.assign_case(
@@ -90,8 +90,8 @@ begin
   if p_track not in ('junior','senior') then
     raise exception 'track must be junior or senior';
   end if;
-  if p_case_number is not null and (p_case_number < 1 or p_case_number > 5) then
-    raise exception 'Requested case_number must be between 1 and 5';
+  if p_case_number is not null and (p_case_number < 1 or p_case_number > 6) then
+    raise exception 'Requested case_number must be between 1 and 6';
   end if;
 
   -- Transaction-scoped advisory lock keyed to (team_name_lower + track)
@@ -122,7 +122,7 @@ begin
     -- Path B: Random unassigned case for this team
     select c into v_pick
     from (
-      select generate_series(1, 5) as c
+      select generate_series(1, 6) as c
     ) s
     where not exists (
       select 1 from public.team_assignments a
@@ -134,7 +134,7 @@ begin
     limit 1;
 
     if v_pick is null then
-      raise exception 'All 5 cases on the % track are already assigned to team "%"', p_track, v_name;
+      raise exception 'All 6 cases on the % track are already assigned to team "%"', p_track, v_name;
     end if;
   end if;
 
@@ -156,7 +156,7 @@ create table if not exists public.results (
   team_name       text not null check (char_length(team_name) between 1 and 60),
   team_name_lower text generated always as (lower(team_name)) stored,
   track           text not null check (track in ('junior','senior')),
-  case_number     int  not null check (case_number between 1 and 5),
+  case_number     int  not null check (case_number between 1 and 6),
   score           int  not null check (score >= 0 and score <= 100000),
   completion_time timestamptz,
   status          text check (status is null or char_length(status) <= 80),

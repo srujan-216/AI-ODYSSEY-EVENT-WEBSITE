@@ -44,7 +44,7 @@ export function Tracks() {
             unit="Unit · 01"
             name="The Mystery Squad"
             years="1st & 2nd Year"
-            cases={5}
+            cases={6}
             tone="cyan"
             tagline="Entry grade"
             desc="Clean reasoning. Well-defined evidence. Surprises you can work with."
@@ -56,7 +56,7 @@ export function Tracks() {
             unit="Unit · 02"
             name="The Mystery Masters"
             years="3rd & 4th Year"
-            cases={5}
+            cases={6}
             tone="red"
             tagline="Adversarial grade"
             desc="Layered intel. Misdirection. Tighter time budgets. Harder decisions."

@@ -1,9 +1,11 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock } from 'lucide-react'
+import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock, Stamp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { ResultRow, Track } from '../lib/types'
-import { TRACK_LABEL } from '../lib/cases'
+import { TRACK_LABEL, CASE_COUNT } from '../lib/cases'
 import { useToast } from '../components/Toast'
+
+const CASE_NUMBERS = Array.from({ length: CASE_COUNT }, (_, i) => i + 1)
 
 interface Props {
   rows: ResultRow[]
@@ -21,14 +23,27 @@ interface Draft {
   is_solved: boolean
 }
 
-const EMPTY: Draft = {
-  team_name: '',
-  track: 'junior',
-  case_number: 1,
-  score: '',
-  completion_time: '',
-  status: '',
-  is_solved: false,
+function nowLocalDatetimeInput(): string {
+  // yyyy-MM-ddTHH:mm — the format <input type="datetime-local"> expects, in the
+  // operator's local wall-clock time, so the moment they click "Record" is the
+  // moment stamped on the submission.
+  const d = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function buildEmpty(): Draft {
+  // New rows default to a solved submission at the current moment, since the
+  // primary admin flow during the event is recording a team's offline hand-in.
+  return {
+    team_name: '',
+    track: 'junior',
+    case_number: 1,
+    score: '',
+    completion_time: nowLocalDatetimeInput(),
+    status: 'Report submitted',
+    is_solved: true,
+  }
 }
 
 export function ResultsEditor({ rows, onChanged }: Props) {
@@ -47,7 +62,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
 
   const start = (r?: ResultRow) => {
     if (!r) {
-      setEditing({ ...EMPTY })
+      setEditing(buildEmpty())
       return
     }
     setEditing({
@@ -64,6 +79,20 @@ export function ResultsEditor({ rows, onChanged }: Props) {
     })
   }
 
+  const markSolvedNow = async (r: ResultRow) => {
+    const { error } = await supabase
+      .from('results')
+      .update({
+        is_solved: true,
+        completion_time: new Date().toISOString(),
+        status: r.status && r.status.trim().length > 0 ? r.status : 'Report submitted',
+      })
+      .eq('id', r.id)
+    if (error) return toast.push(`Could not mark solved: ${error.message}`, 'error')
+    toast.push(`"${r.team_name}" marked solved at ${new Date().toLocaleTimeString()}.`, 'success')
+    onChanged()
+  }
+
   const cancel = () => setEditing(null)
 
   const save = async (e: FormEvent) => {
@@ -73,8 +102,8 @@ export function ResultsEditor({ rows, onChanged }: Props) {
     const name = editing.team_name.trim()
     if (!name) return toast.push('Team name required.', 'error')
     const caseNum = Number(editing.case_number)
-    if (!Number.isInteger(caseNum) || caseNum < 1 || caseNum > 5)
-      return toast.push('Case must be between 1 and 5.', 'error')
+    if (!Number.isInteger(caseNum) || caseNum < 1 || caseNum > CASE_COUNT)
+      return toast.push(`Case must be between 1 and ${CASE_COUNT}.`, 'error')
     const score = Number(editing.score)
     if (!Number.isFinite(score) || score < 0 || score > 100000)
       return toast.push('Score must be a non-negative number.', 'error')
@@ -127,7 +156,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
           </p>
         </div>
         <button onClick={() => start()} className="cyber-btn cyber-btn-primary text-xs">
-          <Plus size={14} /> Add team
+          <Plus size={14} /> Record submission
         </button>
       </div>
 
@@ -215,6 +244,16 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                 </td>
                 <td className="py-2 px-3">
                   <div className="flex gap-2 justify-end">
+                    {!r.is_solved && (
+                      <button
+                        onClick={() => markSolvedNow(r)}
+                        className="text-slate-400 hover:text-cyber-success"
+                        aria-label="Mark solved now"
+                        title="Stamp submission time + mark solved"
+                      >
+                        <Stamp size={14} />
+                      </button>
+                    )}
                     <button
                       onClick={() => start(r)}
                       className="text-slate-400 hover:text-cyber-cyan"
@@ -283,7 +322,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                       setEditing({ ...editing, case_number: Number(e.target.value) })
                     }
                   >
-                    {[1, 2, 3, 4, 5].map((c) => (
+                    {CASE_NUMBERS.map((c) => (
                       <option key={c} value={c}>
                         Case 0{c}
                       </option>
@@ -329,7 +368,12 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                 </div>
               </div>
               <div>
-                <label className="section-title block mb-1">Completion time (optional)</label>
+                <label className="section-title block mb-1">
+                  Submission time{' '}
+                  <span className="text-slate-500 normal-case">
+                    (defaults to now)
+                  </span>
+                </label>
                 <input
                   className="cyber-input"
                   type="datetime-local"

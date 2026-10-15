@@ -307,12 +307,12 @@ function DashboardFor({ track }: { track: Track }) {
                       </>
                     ) : assignments.length >= cases.length ? (
                       <>
-                        <FileSearch size={18} /> All 5 cases dealt
+                        <FileSearch size={18} /> All {cases.length} cases dealt
                       </>
                     ) : assignments.length > 0 ? (
                       <>
                         <Sparkles size={18} />
-                        Deal additional case ({assignments.length}/5)
+                        Deal additional case ({assignments.length}/{cases.length})
                         <RotateCw
                           size={16}
                           className="opacity-80 transition-transform group-hover:rotate-180 duration-700"
@@ -332,7 +332,7 @@ function DashboardFor({ track }: { track: Track }) {
                 </button>
                 <p className="text-[0.62rem] text-stone-600 mt-2 text-center tracking-widest uppercase font-mono">
                   {assignments.length >= cases.length
-                    ? '> all 5 cases assigned to this team <'
+                    ? `> all ${cases.length} cases assigned to this team <`
                     : assignments.length > 0
                     ? `> ${assignments.length} case(s) active · press to request additional case <`
                     : spinning

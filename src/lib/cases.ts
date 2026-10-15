@@ -3,10 +3,11 @@ import type { Track } from './types'
 /**
  * Case PDF configuration.
  *
- * To replace or re-point case briefs, drop PDFs into `public/cases/junior/` or
- * `public/cases/senior/`. The file name must match `case-NN.pdf` where NN is a
- * zero-padded number. You can also override `pdfPath` here without touching
- * the rest of the codebase.
+ * There are **six case briefs total**, shared across both tracks (Junior and
+ * Senior point at the same PDF per case number). Drop PDFs into
+ * `public/cases/` named `case-NN.pdf`, zero-padded (`case-01.pdf` …
+ * `case-06.pdf`). To re-point a single case, edit `pdfPath` below —
+ * it is the only source of truth.
  */
 export interface CaseConfig {
   number: number
@@ -15,37 +16,30 @@ export interface CaseConfig {
   pdfPath: string
 }
 
-const JUNIOR_TITLES: Record<number, string> = {
+export const CASE_COUNT = 6
+
+const SHARED_TITLES: Record<number, string> = {
   1: 'The Vanishing Dataset',
   2: 'Ghost in the Mainframe',
-  3: 'Rogue Signal',
+  3: 'Operation Blackbox',
   4: 'The Encrypted Letter',
-  5: 'Phantom Protocol',
-}
-
-const SENIOR_TITLES: Record<number, string> = {
-  1: 'Operation Blackbox',
-  2: 'Neural Heist',
-  3: 'The Quantum Thief',
-  4: 'Zero-Day Shadow',
-  5: 'Deepfake Protocol',
+  5: 'Neural Heist',
+  6: 'Deepfake Protocol',
 }
 
 function pad(n: number): string {
   return n.toString().padStart(2, '0')
 }
 
-export function getCases(track: Track): CaseConfig[] {
-  // Both divisions carry 5 sealed case files.
-  const count = 5
-  const titles = track === 'junior' ? JUNIOR_TITLES : SENIOR_TITLES
-  return Array.from({ length: count }, (_, i) => {
+export function getCases(_track: Track): CaseConfig[] {
+  // Both divisions carry the same six sealed case files.
+  return Array.from({ length: CASE_COUNT }, (_, i) => {
     const n = i + 1
     return {
       number: n,
       label: pad(n),
-      title: titles[n] ?? `Case ${pad(n)}`,
-      pdfPath: `/cases/${track}/case-${pad(n)}.pdf`,
+      title: SHARED_TITLES[n] ?? `Case ${pad(n)}`,
+      pdfPath: `/cases/case-${pad(n)}.pdf`,
     }
   })
 }
@@ -60,6 +54,6 @@ export const TRACK_LABEL: Record<Track, string> = {
 }
 
 export const TRACK_DESCRIPTION: Record<Track, string> = {
-  junior: 'For 1st and 2nd-year investigators. Five sealed case files await.',
-  senior: 'For 3rd and 4th-year investigators. Five high-complexity cases await.',
+  junior: 'For 1st and 2nd-year investigators. Six sealed case files await.',
+  senior: 'For 3rd and 4th-year investigators. Six high-stakes cases await.',
 }

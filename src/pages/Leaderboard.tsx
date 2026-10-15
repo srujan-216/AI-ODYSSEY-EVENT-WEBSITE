@@ -286,7 +286,7 @@ export function Leaderboard() {
                         {/* 4. CASES SOLVED */}
                         <td className="py-2 px-3 text-center font-mono font-bold text-xs text-cyan-400">
                           {entry ? (
-                            <span>{entry.cases_solved} / 5</span>
+                            <span>{entry.cases_solved} / 6</span>
                           ) : (
                             <span className="text-slate-500/70 font-mono text-sm">—</span>
                           )}
@@ -323,35 +323,36 @@ export function Leaderboard() {
 
         {/* ── BOTTOM STAGE: PERSPECTIVE CYBER DAIS & REFLECTIONS ── */}
         <div className="relative w-full max-w-[960px] flex flex-col items-center pointer-events-none -mt-3">
-          {/* Concentric 3D Holographic Dais Rings */}
-          <div className="relative w-[760px] h-[60px] flex items-center justify-center">
+          {/* Concentric 3D Holographic Dais Rings — fluid widths so they
+              never cause horizontal overflow on narrow viewports. */}
+          <div className="relative w-full max-w-[760px] h-[60px] flex items-center justify-center">
             {/* Outer Elliptical Neon Ring */}
             <div
-              className="absolute w-[720px] h-[32px] rounded-[50%] border-2 border-cyan-400/90 bg-cyan-400/10"
+              className="absolute w-[95%] h-[32px] rounded-[50%] border-2 border-cyan-400/90 bg-cyan-400/10"
               style={{
                 boxShadow:
                   '0 0 28px rgba(0, 240, 255, 0.8), inset 0 0 20px rgba(0, 240, 255, 0.5)',
               }}
             />
-            {/* Inner Concentric Neon Ring with Segment Ticks */}
+            {/* Inner Concentric Neon Ring */}
             <div
-              className="absolute w-[560px] h-[20px] rounded-[50%] border border-cyan-300/80"
+              className="absolute w-[74%] h-[20px] rounded-[50%] border border-cyan-300/80"
               style={{
                 boxShadow: '0 0 16px rgba(56, 189, 248, 0.75)',
               }}
             />
             {/* Center Glowing Pool */}
-            <div className="w-[420px] h-[10px] rounded-[50%] bg-cyan-400/40 blur-md" />
+            <div className="w-[55%] h-[10px] rounded-[50%] bg-cyan-400/40 blur-md" />
           </div>
 
           {/* Glossy Floor Vertical Light Streak Reflections */}
-          <div className="w-full flex justify-between px-16 -mt-3">
+          <div className="w-full flex justify-between px-6 sm:px-16 -mt-3">
             {/* Gold streak on left */}
-            <div className="w-40 h-14 bg-gradient-to-b from-amber-500/40 via-amber-500/15 to-transparent blur-xl" />
+            <div className="w-20 sm:w-40 h-14 bg-gradient-to-b from-amber-500/40 via-amber-500/15 to-transparent blur-xl" />
             {/* Cyan streak in center */}
-            <div className="w-72 h-18 bg-gradient-to-b from-cyan-400/55 via-cyan-400/20 to-transparent blur-xl" />
+            <div className="w-32 sm:w-72 h-18 bg-gradient-to-b from-cyan-400/55 via-cyan-400/20 to-transparent blur-xl" />
             {/* Copper/orange streak on right */}
-            <div className="w-40 h-14 bg-gradient-to-b from-orange-500/40 via-orange-500/15 to-transparent blur-xl" />
+            <div className="w-20 sm:w-40 h-14 bg-gradient-to-b from-orange-500/40 via-orange-500/15 to-transparent blur-xl" />
           </div>
         </div>
       </div>

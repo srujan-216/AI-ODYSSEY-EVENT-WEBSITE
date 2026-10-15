@@ -169,9 +169,10 @@ management to minimise blast radius.
 ├── public/
 │   ├── favicon.svg
 │   ├── sample-results.csv              # download-ready CSV template
-│   └── cases/
-│       ├── junior/   case-01.pdf … case-08.pdf   (you add these)
-│       └── senior/   case-01.pdf … case-10.pdf
+│   └── cases/                          # six shared case PDFs (you add these)
+│       ├── case-01.pdf
+│       ├── case-02.pdf
+│       └── … case-06.pdf
 ├── src/
 │   ├── main.tsx                         Entry point
 │   ├── App.tsx                          Routes
@@ -209,10 +210,11 @@ management to minimise blast radius.
 
 ## Case PDFs — how to add or replace them
 
-1. Drop files into `public/cases/junior/` or `public/cases/senior/`.
-2. File names **must** be `case-NN.pdf`, zero-padded (`case-01.pdf` …
-   `case-10.pdf`).
-3. The dashboard's "Open case brief" button opens the file in a new tab.
+1. Drop files into `public/cases/` (one shared set — both tracks open the
+   same PDF for a given case number).
+2. File names **must** be `case-NN.pdf`, zero-padded, from `case-01.pdf`
+   through `case-06.pdf`.
+3. The dashboard's "Open sealed PDF" button opens the file in a new tab.
 4. To re-point or rename a case, edit `src/lib/cases.ts` — `pdfPath` is the
    single source of truth.
 
@@ -224,9 +226,10 @@ coordinators that a brief still needs uploading.
 
 ## Importing results (CSV)
 
-Each team can be assigned **up to five cases per track**, and the
-leaderboard ranks by `cases_solved` first, then total score of solved cases,
-then completion time. One CSV row = one (team × track × case).
+Each team can be assigned **up to six cases per track** (there are six
+shared case briefs; Junior and Senior open the same PDF for a given case
+number). The leaderboard ranks by `cases_solved` first, then total score
+of solved cases, then completion time. One CSV row = one (team × track × case).
 
 CSV template (`public/sample-results.csv`, also downloadable from the admin
 dashboard):
@@ -244,7 +247,7 @@ Watchdogs,junior,1,0,,In progress,false
 - Optional: `completion_time` (ISO 8601), `status` (free text, ≤ 80 chars),
   `is_solved` (defaults to `false` — only solved rows count on the board).
 - `track` must be `junior` or `senior` (case-insensitive).
-- `case_number` is an integer `1..5`.
+- `case_number` is an integer `1..6`.
 - `score` is an integer `0..100000`.
 - `is_solved` accepts `true` / `false` / `yes` / `no` / `1` / `0`.
 - Duplicate (team + track + case) rows **update** the existing record instead
