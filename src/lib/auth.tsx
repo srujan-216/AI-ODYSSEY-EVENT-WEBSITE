@@ -20,7 +20,7 @@ import type { Profile } from './types'
  * the matching email, promote their profile role, and add an entry here.
  */
 const USERNAME_EMAIL_MAP: Record<string, string> = {
-  admin: 'admin@aiodyssey.local',
+  admin: 'srujan.k216@gmail.com',
 }
 
 /**
