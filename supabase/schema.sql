@@ -85,6 +85,7 @@ declare
   v_name  text := btrim(p_team_name);
   v_pick  int;
   v_diff  text;
+  v_open  int;
 begin
   if v_name is null or char_length(v_name) < 2 or char_length(v_name) > 60 then
     raise exception 'Team name must be 2-60 characters';
@@ -121,7 +122,25 @@ begin
     end if;
     v_pick := p_case_number;
   else
-    -- Path B: Random unassigned case for this team
+    -- Path B: Random unassigned case for this team.
+    --
+    -- Guard: one active case per team. If any prior assignment on this track
+    -- is still open (no matching results row, or is_solved is not true), the
+    -- team must submit the report before spinning again.
+    select count(*) into v_open
+    from public.team_assignments a
+    left join public.results r
+      on r.team_name_lower = a.team_name_lower
+     and r.track = a.track
+     and r.case_number = a.case_number
+    where a.team_name_lower = lower(v_name)
+      and a.track = p_track
+      and (r.id is null or r.is_solved is not true);
+
+    if v_open > 0 then
+      raise exception 'Team "%" already has an active case on the % track. Submit the report before spinning again.', v_name, p_track;
+    end if;
+
     select c into v_pick
     from (
       select generate_series(1, 6) as c

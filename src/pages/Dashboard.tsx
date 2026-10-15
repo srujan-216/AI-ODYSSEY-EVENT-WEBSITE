@@ -7,6 +7,7 @@ import {
   FileSearch,
   Fingerprint,
   Loader2,
+  Lock,
   RotateCw,
   Search,
   Sparkles,
@@ -34,36 +35,103 @@ function DashboardFor({ track }: { track: Track }) {
   const [spinning, setSpinning] = useState(false)
   const [assignment, setAssignment] = useState<TeamAssignment | null>(null)
   const [assignments, setAssignments] = useState<TeamAssignment[]>([])
+  const [solvedCases, setSolvedCases] = useState<Set<number>>(new Set())
   const [lookupBusy, setLookupBusy] = useState(false)
   const [landedIndex, setLandedIndex] = useState<number | null>(null)
   const [isDemoAssignment, setIsDemoAssignment] = useState(false)
 
-  // Try to recover existing assignments on team-name change (debounced)
-  useEffect(() => {
-    if (!teamName.trim() || !isSupabaseConfigured) return
-    const q = teamName.trim()
-    const t = setTimeout(async () => {
-      const { data } = await supabase
+  // Which of this team's existing assignments are still ACTIVE (= have no
+  // recorded, solved result yet). The server also enforces this inside
+  // assign_case(), so a spin for a second case is impossible while an older
+  // one is still open; the client UI just mirrors it clearly.
+  const activeAssignments = useMemo(
+    () => assignments.filter((a) => !solvedCases.has(a.case_number)),
+    [assignments, solvedCases],
+  )
+  const hasActiveCase = activeAssignments.length > 0
+  const allCasesDealt = assignments.length >= cases.length
+
+  // Try to recover existing assignments on team-name change (debounced).
+  // Also loads this team's recorded results so the lock state can derive
+  // which assignments are still open.
+  const refreshTeamState = async (nameLower: string) => {
+    if (!isSupabaseConfigured) return
+    const [{ data: assigns }, { data: results }] = await Promise.all([
+      supabase
         .from('team_assignments')
         .select('*')
-        .eq('team_name_lower', q.toLowerCase())
+        .eq('team_name_lower', nameLower)
         .eq('track', track)
-        .order('assigned_at', { ascending: false })
-      if (data && data.length > 0) {
-        const rows = data as TeamAssignment[]
-        setAssignments(rows)
-        setAssignment(rows[0])
-        const idx = rows[0].case_number - 1
-        const final = computeTargetRotation(0, idx, cases.length)
-        setRotation(final % 360)
-        setLandedIndex(idx)
-      } else {
-        setAssignments([])
-        setAssignment(null)
-      }
-    }, 350)
+        .order('assigned_at', { ascending: false }),
+      supabase
+        .from('results')
+        .select('case_number,is_solved')
+        .eq('team_name_lower', nameLower)
+        .eq('track', track),
+    ])
+    const solved = new Set<number>(
+      (results ?? [])
+        .filter((r: { is_solved: boolean | null }) => r.is_solved === true)
+        .map((r: { case_number: number }) => r.case_number),
+    )
+    setSolvedCases(solved)
+    if (assigns && assigns.length > 0) {
+      const rows = assigns as TeamAssignment[]
+      setAssignments(rows)
+      setAssignment(rows[0])
+      const idx = rows[0].case_number - 1
+      const final = computeTargetRotation(0, idx, cases.length)
+      setRotation(final % 360)
+      setLandedIndex(idx)
+    } else {
+      setAssignments([])
+      setAssignment(null)
+    }
+  }
+
+  useEffect(() => {
+    if (!teamName.trim() || !isSupabaseConfigured) return
+    const q = teamName.trim().toLowerCase()
+    const t = setTimeout(() => refreshTeamState(q), 350)
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamName, track, cases.length])
+
+  // Realtime: the moment an admin records this team's submission, re-pull
+  // assignments + results so the wheel unlocks without a page reload.
+  useEffect(() => {
+    if (!teamName.trim() || !isSupabaseConfigured) return
+    const q = teamName.trim().toLowerCase()
+    const ch = supabase
+      .channel(`dashboard-${track}-${q}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'results' },
+        (payload: { new?: { team_name_lower?: string; track?: string }; old?: { team_name_lower?: string; track?: string } }) => {
+          const n = payload.new ?? payload.old
+          if (!n) return
+          if (n.team_name_lower === q && n.track === track) {
+            refreshTeamState(q)
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'team_assignments' },
+        (payload: { new?: { team_name_lower?: string; track?: string }; old?: { team_name_lower?: string; track?: string } }) => {
+          const n = payload.new ?? payload.old
+          if (!n) return
+          if (n.team_name_lower === q && n.track === track) {
+            refreshTeamState(q)
+          }
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(ch)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamName, track])
 
   const spin = async () => {
     const name = teamName.trim()
@@ -78,6 +146,16 @@ function DashboardFor({ track }: { track: Track }) {
     const alreadyDealt = new Set(assignments.map((a) => a.case_number))
     if (alreadyDealt.size >= cases.length) {
       toast.push('All cases on this track are already dealt to your team.', 'info')
+      return
+    }
+    if (hasActiveCase) {
+      const open = activeAssignments
+        .map((a) => `0${a.case_number}`)
+        .join(', ')
+      toast.push(
+        `Finish Case ${open} first — hand the report to a coordinator before spinning again.`,
+        'error',
+      )
       return
     }
 
@@ -288,15 +366,18 @@ function DashboardFor({ track }: { track: Track }) {
 
               {/* Spin button */}
               <div className="relative mt-6">
-                {!spinning && assignments.length < cases.length && teamName.trim().length >= 2 && (
-                  <span
-                    aria-hidden
-                    className="absolute inset-[-6px] rounded-sm blur-xl breath pointer-events-none bg-red-500/30"
-                  />
-                )}
+                {!spinning &&
+                  !allCasesDealt &&
+                  !hasActiveCase &&
+                  teamName.trim().length >= 2 && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-[-6px] rounded-sm blur-xl breath pointer-events-none bg-red-500/30"
+                    />
+                  )}
                 <button
                   onClick={spin}
-                  disabled={spinning || assignments.length >= cases.length}
+                  disabled={spinning || allCasesDealt || hasActiveCase}
                   className="relative w-full bg-stone-900 text-stone-50 py-5 font-display tracking-[0.3em] uppercase text-sm font-bold overflow-hidden border-2 border-stone-900 hover:bg-red-600 hover:border-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
                   style={{
                     clipPath:
@@ -309,14 +390,19 @@ function DashboardFor({ track }: { track: Track }) {
                         <Loader2 size={18} className="animate-spin" />
                         Dealing next case…
                       </>
-                    ) : assignments.length >= cases.length ? (
+                    ) : hasActiveCase ? (
+                      <>
+                        <Lock size={16} />
+                        Case 0{activeAssignments[0].case_number} active · submit first
+                      </>
+                    ) : allCasesDealt ? (
                       <>
                         <FileSearch size={18} /> All {cases.length} cases dealt
                       </>
                     ) : assignments.length > 0 ? (
                       <>
                         <Sparkles size={18} />
-                        Deal additional case ({assignments.length}/{cases.length})
+                        Deal next case ({assignments.length}/{cases.length})
                         <RotateCw
                           size={16}
                           className="opacity-80 transition-transform group-hover:rotate-180 duration-700"
@@ -335,16 +421,42 @@ function DashboardFor({ track }: { track: Track }) {
                   </span>
                 </button>
                 <p className="text-[0.62rem] text-stone-600 mt-2 text-center tracking-widest uppercase font-mono">
-                  {assignments.length >= cases.length
+                  {spinning
+                    ? '> routing through intelligence… <'
+                    : hasActiveCase
+                    ? `> locked — hand in Case 0${activeAssignments[0].case_number} report first <`
+                    : allCasesDealt
                     ? `> all ${cases.length} cases assigned to this team <`
                     : assignments.length > 0
-                    ? `> ${assignments.length} case(s) active · press to request additional case <`
-                    : spinning
-                    ? '> routing through intelligence… <'
+                    ? `> ${assignments.length}/${cases.length} cleared · press to deal the next case <`
                     : teamName.trim().length < 2
                     ? '> awaiting call-sign <'
                     : '> press to deploy <'}
                 </p>
+
+                {/* Active-case lockout notice — only when a team is mid-case */}
+                {hasActiveCase && (
+                  <div className="mt-4 rounded-sm border border-amber-600/60 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+                    <Lock size={14} className="text-amber-700 mt-0.5 shrink-0" />
+                    <div className="text-xs text-stone-800 leading-relaxed">
+                      <div className="font-display font-bold tracking-widest uppercase text-amber-800 text-[0.65rem]">
+                        One case at a time
+                      </div>
+                      <p className="mt-1 font-serif italic text-stone-900">
+                        Your team is still on{' '}
+                        <span className="font-bold">
+                          Case 0{activeAssignments[0].case_number}
+                          {activeAssignments.length > 1
+                            ? ` (+${activeAssignments.length - 1} more)`
+                            : ''}
+                        </span>
+                        . Finish the written report and hand it to a
+                        coordinator. The wheel re-opens the moment they record
+                        your submission.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -467,12 +579,21 @@ function DashboardFor({ track }: { track: Track }) {
               <ul className="space-y-1.5">
                 {cases.map((c) => {
                   const isMine = assignment?.case_number === c.number
+                  const assignedToTeam = assignments.some(
+                    (a) => a.case_number === c.number,
+                  )
+                  const solved = solvedCases.has(c.number)
+                  const active = assignedToTeam && !solved
                   const hard = c.difficulty === 'hard'
                   return (
                     <li
                       key={c.number}
                       className={`flex items-center justify-between gap-3 px-3 py-2 border transition-colors ${
-                        isMine
+                        active
+                          ? 'border-amber-600 bg-amber-500/15 text-stone-900'
+                          : solved
+                          ? 'border-emerald-700/60 bg-emerald-600/10 text-stone-900'
+                          : isMine
                           ? 'border-red-600 bg-red-600/10 text-stone-900'
                           : 'border-stone-900/15 text-stone-700'
                       }`}
@@ -480,7 +601,13 @@ function DashboardFor({ track }: { track: Track }) {
                       <div className="flex items-center gap-3 min-w-0">
                         <span
                           className={`font-mono text-xs tabular-nums ${
-                            isMine ? 'text-red-600 font-bold' : 'text-stone-500'
+                            active
+                              ? 'text-amber-700 font-bold'
+                              : solved
+                              ? 'text-emerald-800 font-bold'
+                              : isMine
+                              ? 'text-red-600 font-bold'
+                              : 'text-stone-500'
                           }`}
                         >
                           #{c.label}
@@ -498,7 +625,15 @@ function DashboardFor({ track }: { track: Track }) {
                           {hard ? 'Hard' : 'Easy'}
                         </span>
                       </div>
-                      {isMine ? (
+                      {active ? (
+                        <span className="shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border border-amber-700 bg-amber-500/40 text-amber-900 font-bold">
+                          Active
+                        </span>
+                      ) : solved ? (
+                        <span className="shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border border-emerald-800 bg-emerald-600/40 text-emerald-900 font-bold">
+                          Cleared
+                        </span>
+                      ) : isMine ? (
                         <span className="stamp shrink-0" style={{ fontSize: '0.5rem', padding: '0.08em 0.3em' }}>
                           Yours
                         </span>
