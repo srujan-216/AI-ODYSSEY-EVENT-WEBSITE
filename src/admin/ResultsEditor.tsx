@@ -29,6 +29,12 @@ interface Draft {
   completion_time: string
   status: string
   is_solved: boolean
+  /**
+   * True when the modal was opened from the live spin feed — team / track /
+   * case are known from the assignment, so those fields render read-only
+   * and the operator is sent straight to score + submission time.
+   */
+  quick?: boolean
 }
 
 function nowLocalDatetimeInput(): string {
@@ -75,13 +81,17 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
           r.case_number === prefill.case_number,
       )
       if (existing) {
+        // Editing an existing recorded submission — keep the full form.
         start(existing)
       } else {
+        // New submission from the live feed — jump straight to score + time.
         setEditing({
           ...buildEmpty(),
           team_name: prefill.team_name,
           track: prefill.track,
           case_number: prefill.case_number,
+          completion_time: nowLocalDatetimeInput(),
+          quick: true,
         })
       }
       // Scroll the modal into view on mobile — the editor is below the fold.
@@ -316,74 +326,171 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
       </div>
 
       {editing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 grid place-items-center p-4">
-          <form onSubmit={save} className="glass-strong rounded-2xl p-6 w-full max-w-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="h-display text-lg text-white">
-                {editing.id ? 'Edit result' : 'Add result'}
-              </h3>
-              <button type="button" onClick={cancel} aria-label="Close">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 grid place-items-center p-4 overflow-y-auto">
+          <form
+            onSubmit={save}
+            className="glass-strong rounded-2xl p-5 sm:p-6 w-full max-w-lg my-auto"
+          >
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <div className="min-w-0">
+                <h3 className="h-display text-base sm:text-lg text-white">
+                  {editing.quick
+                    ? 'Record submission'
+                    : editing.id
+                    ? 'Edit result'
+                    : 'Add result'}
+                </h3>
+                {editing.quick && (
+                  <p className="text-[0.65rem] sm:text-xs text-slate-400 mt-1">
+                    Enter the score and the time the written report was handed
+                    in. Everything else is already captured from the spin.
+                  </p>
+                )}
+              </div>
+              <button type="button" onClick={cancel} aria-label="Close" className="shrink-0">
                 <X size={18} className="text-slate-400 hover:text-white" />
               </button>
             </div>
 
+            {/* Identity header — read-only when the modal was opened from the
+                live spin feed, since team / track / case are already fixed by
+                the assignment. */}
+            {editing.quick && (
+              <div className="rounded-lg border border-cyber-cyan/30 bg-cyber-cyan/5 px-4 py-3 mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-display text-white truncate max-w-[220px]">
+                    {editing.team_name}
+                  </span>
+                  <span
+                    className={
+                      editing.track === 'junior'
+                        ? 'chip text-[0.6rem]'
+                        : 'chip chip-violet text-[0.6rem]'
+                    }
+                  >
+                    {TRACK_LABEL[editing.track]}
+                  </span>
+                  <span className="chip text-[0.6rem] font-mono">
+                    Case 0{editing.case_number}
+                  </span>
+                </div>
+                <p className="text-[0.6rem] text-slate-500 mt-1 font-mono tracking-widest uppercase">
+                  Identity locked — click Cancel to pick a different row.
+                </p>
+              </div>
+            )}
+
             <div className="grid gap-3">
+              {!editing.quick && (
+                <>
+                  <div>
+                    <label className="section-title block mb-1">Team name</label>
+                    <input
+                      className="cyber-input"
+                      required
+                      maxLength={60}
+                      value={editing.team_name}
+                      onChange={(e) =>
+                        setEditing({ ...editing, team_name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="section-title block mb-1">Division</label>
+                      <select
+                        className="cyber-input"
+                        value={editing.track}
+                        onChange={(e) =>
+                          setEditing({ ...editing, track: e.target.value as Track })
+                        }
+                      >
+                        <option value="junior">Junior</option>
+                        <option value="senior">Senior</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="section-title block mb-1">Case #</label>
+                      <select
+                        className="cyber-input"
+                        value={editing.case_number}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            case_number: Number(e.target.value),
+                          })
+                        }
+                      >
+                        {CASE_NUMBERS.map((c) => (
+                          <option key={c} value={c}>
+                            Case 0{c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ========= PRIMARY FIELDS ========= */}
               <div>
-                <label className="section-title block mb-1">Team name</label>
+                <label className="section-title block mb-1">
+                  Score{' '}
+                  <span className="text-slate-500 normal-case">
+                    (from the offline evaluation)
+                  </span>
+                </label>
                 <input
-                  className="cyber-input"
+                  className="cyber-input text-lg font-display tabular-nums"
                   required
-                  maxLength={60}
-                  value={editing.team_name}
-                  onChange={(e) => setEditing({ ...editing, team_name: e.target.value })}
+                  autoFocus
+                  type="number"
+                  min={0}
+                  max={100000}
+                  placeholder="e.g. 85"
+                  value={editing.score}
+                  onChange={(e) => setEditing({ ...editing, score: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="section-title block mb-1">Division</label>
-                  <select
-                    className="cyber-input"
-                    value={editing.track}
-                    onChange={(e) =>
-                      setEditing({ ...editing, track: e.target.value as Track })
-                    }
-                  >
-                    <option value="junior">Junior</option>
-                    <option value="senior">Senior</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="section-title block mb-1">Case #</label>
-                  <select
-                    className="cyber-input"
-                    value={editing.case_number}
-                    onChange={(e) =>
-                      setEditing({ ...editing, case_number: Number(e.target.value) })
-                    }
-                  >
-                    {CASE_NUMBERS.map((c) => (
-                      <option key={c} value={c}>
-                        Case 0{c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="section-title block mb-1">Score</label>
+              <div>
+                <label className="section-title block mb-1">
+                  Submission time{' '}
+                  <span className="text-slate-500 normal-case">
+                    (defaults to now — adjust if the report came in earlier)
+                  </span>
+                </label>
+                <div className="flex gap-2">
                   <input
-                    className="cyber-input"
-                    required
-                    type="number"
-                    min={0}
-                    max={100000}
-                    value={editing.score}
-                    onChange={(e) => setEditing({ ...editing, score: e.target.value })}
+                    className="cyber-input flex-1"
+                    type="datetime-local"
+                    value={editing.completion_time}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        completion_time: e.target.value,
+                      })
+                    }
                   />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditing({
+                        ...editing,
+                        completion_time: nowLocalDatetimeInput(),
+                      })
+                    }
+                    className="cyber-btn cyber-btn-ghost text-[0.6rem] shrink-0"
+                    title="Snap submission time to right now"
+                  >
+                    Now
+                  </button>
                 </div>
               </div>
+
+              {/* ========= OPTIONAL FIELDS ========= */}
               <div>
-                <label className="section-title block mb-1">Status / Solved state</label>
-                <div className="flex items-center gap-4 mt-1">
+                <label className="section-title block mb-1">Solved?</label>
+                <div className="flex items-center gap-4 mt-1 flex-wrap">
                   <label className="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-300">
                     <input
                       type="radio"
@@ -392,7 +499,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                       onChange={() => setEditing({ ...editing, is_solved: true })}
                       className="accent-cyber-cyan"
                     />
-                    <span>Mark as Solved (counts on leaderboard)</span>
+                    <span>Solved — counts on leaderboard</span>
                   </label>
                   <label className="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-300">
                     <input
@@ -402,25 +509,9 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                       onChange={() => setEditing({ ...editing, is_solved: false })}
                       className="accent-cyber-cyan"
                     />
-                    <span>In progress / Unsolved</span>
+                    <span>In progress</span>
                   </label>
                 </div>
-              </div>
-              <div>
-                <label className="section-title block mb-1">
-                  Submission time{' '}
-                  <span className="text-slate-500 normal-case">
-                    (defaults to now)
-                  </span>
-                </label>
-                <input
-                  className="cyber-input"
-                  type="datetime-local"
-                  value={editing.completion_time}
-                  onChange={(e) =>
-                    setEditing({ ...editing, completion_time: e.target.value })
-                  }
-                />
               </div>
               <div>
                 <label className="section-title block mb-1">Status text (optional)</label>
