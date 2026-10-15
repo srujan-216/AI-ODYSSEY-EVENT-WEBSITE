@@ -1,6 +1,8 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { LogIn, LogOut, Menu, Shield, X } from 'lucide-react'
+import { LogIn, LogOut, Menu, Shield, UserPlus, X } from 'lucide-react'
+
+const REGISTER_URL = 'https://qrto.org/qKg92C'
 import { Logo } from './Logo'
 import { useAuth, displayNameFor } from '../lib/auth'
 
@@ -62,6 +64,14 @@ export function Nav() {
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
+          <a
+            href={REGISTER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="cyber-btn cyber-btn-primary text-xs"
+          >
+            <UserPlus size={14} /> Register
+          </a>
           {session && isAdmin ? (
             <>
               <span className="chip chip-violet" title={`${displayNameFor(profile)} · ${profile?.email ?? ''}`}>
@@ -81,7 +91,7 @@ export function Nav() {
             <Link
               to="/login"
               state={{ from: location.pathname }}
-              className="cyber-btn cyber-btn-primary text-xs"
+              className="cyber-btn cyber-btn-ghost text-xs"
             >
               <LogIn size={14} /> Log in
             </Link>
@@ -124,7 +134,16 @@ export function Nav() {
                 Control Room
               </NavLink>
             )}
-            <div className="pt-3 mt-3 border-t border-cyber-cyan/10">
+            <div className="pt-3 mt-3 border-t border-cyber-cyan/10 flex flex-col gap-2">
+              <a
+                href={REGISTER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={close}
+                className="cyber-btn cyber-btn-primary w-full"
+              >
+                <UserPlus size={14} /> Register
+              </a>
               {session && isAdmin ? (
                 <button
                   onClick={async () => {
@@ -141,7 +160,7 @@ export function Nav() {
                   to="/login"
                   state={{ from: location.pathname }}
                   onClick={close}
-                  className="cyber-btn cyber-btn-primary w-full"
+                  className="cyber-btn cyber-btn-ghost w-full"
                 >
                   <LogIn size={14} /> Log in
                 </Link>
