@@ -2,6 +2,8 @@ import Papa from 'papaparse'
 import type { CsvRow, LeaderboardEntry, RowValidation, Track } from '../lib/types'
 
 export const REQUIRED_COLUMNS = ['team_name', 'track', 'case_number', 'score'] as const
+// Note: difficulty is derived from case_number by the DB trigger, so it is
+// NOT part of the import contract — admins only type score + status.
 export const OPTIONAL_COLUMNS = ['completion_time', 'status', 'is_solved'] as const
 export const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS] as const
 

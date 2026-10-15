@@ -4,7 +4,7 @@ import { ArrowRight, Fingerprint, Shield } from 'lucide-react'
 
 export function Tracks() {
   return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24 relative overflow-hidden">
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16 md:py-24 relative overflow-hidden">
       {/* Background cursive */}
       <div
         aria-hidden
@@ -19,37 +19,39 @@ export function Tracks() {
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-baseline justify-between flex-wrap gap-4 mb-14">
-          <div>
-            <div className="font-mono text-[0.65rem] tracking-[0.3em] uppercase text-red-500 mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 bg-red-500 rounded-full breath" />
-              Clearance review · 00:00:08
+        <div className="flex items-baseline justify-between flex-wrap gap-4 mb-10 sm:mb-14">
+          <div className="min-w-0">
+            <div className="font-mono text-[0.6rem] sm:text-[0.65rem] tracking-[0.3em] uppercase text-red-500 mb-3 flex items-center gap-2 flex-wrap">
+              <span className="w-2 h-2 bg-red-500 rounded-full breath shrink-0" />
+              <span>Clearance review · 00:00:08</span>
             </div>
-            <h1 className="font-serif italic text-stone-50 text-4xl md:text-6xl leading-tight">
+            <h1 className="font-serif italic text-stone-50 text-3xl sm:text-4xl md:text-6xl leading-tight">
               Pick <span className="scribble">your</span> file.
             </h1>
-            <p className="mt-4 text-stone-400 max-w-xl leading-relaxed">
-              Two investigation units. One sealed case per team. Both files are
-              on the table — your academic year decides which one you can open.
+            <p className="mt-4 text-stone-400 max-w-xl text-sm sm:text-base leading-relaxed">
+              Two investigation units. Six case files per division — four easy,
+              two hard. Your academic year decides which folder you can open.
             </p>
           </div>
-          <div className="font-hand text-xl text-red-500">
+          <div className="font-hand text-lg sm:text-xl text-red-500 shrink-0">
             — don't mix the folders.
           </div>
         </div>
 
-        <div className="grid gap-10 lg:grid-cols-2 stage-3d">
+        <div className="grid gap-8 sm:gap-10 lg:grid-cols-2 stage-3d">
           <CaseFolder
             to="/dashboard/junior"
             unit="Unit · 01"
             name="The Mystery Squad"
             years="1st & 2nd Year"
             cases={6}
+            easy={4}
+            hard={2}
             tone="cyan"
             tagline="Entry grade"
             desc="Clean reasoning. Well-defined evidence. Surprises you can work with."
             stamp="Open"
-            rotate="-rotate-2"
+            rotate="sm:-rotate-2"
           />
           <CaseFolder
             to="/dashboard/senior"
@@ -57,11 +59,13 @@ export function Tracks() {
             name="The Mystery Masters"
             years="3rd & 4th Year"
             cases={6}
+            easy={4}
+            hard={2}
             tone="red"
             tagline="Adversarial grade"
             desc="Layered intel. Misdirection. Tighter time budgets. Harder decisions."
             stamp="Hot"
-            rotate="rotate-2"
+            rotate="sm:rotate-2"
           />
         </div>
       </div>
@@ -75,6 +79,8 @@ interface Props {
   name: string
   years: string
   cases: number
+  easy: number
+  hard: number
   tone: 'cyan' | 'red'
   tagline: string
   desc: string
@@ -88,6 +94,8 @@ function CaseFolder({
   name,
   years,
   cases,
+  easy,
+  hard,
   tone,
   tagline,
   desc,
@@ -128,39 +136,54 @@ function CaseFolder({
         {stamp}
       </span>
 
-      <div className="p-8 pt-14">
-        <div className="flex items-center gap-3 text-[0.65rem] font-mono tracking-widest uppercase text-stone-600">
+      <div className="p-6 sm:p-8 pt-14">
+        <div className="flex items-center gap-3 text-[0.6rem] sm:text-[0.65rem] font-mono tracking-widest uppercase text-stone-600 flex-wrap">
           <span>Division</span>
           <span className="text-stone-500">/</span>
           <span>{years}</span>
         </div>
-        <h2 className="font-serif italic text-stone-900 text-3xl md:text-4xl mt-2 leading-tight">
+        <h2 className="font-serif italic text-stone-900 text-2xl sm:text-3xl md:text-4xl mt-2 leading-tight break-words">
           {name}
         </h2>
-        <div className={`mt-1 font-hand text-xl ${accent}`}>{tagline}</div>
+        <div className={`mt-1 font-hand text-lg sm:text-xl ${accent}`}>{tagline}</div>
 
-        <p className="mt-6 text-stone-700 leading-relaxed max-w-md">{desc}</p>
+        <p className="mt-5 sm:mt-6 text-stone-700 text-sm sm:text-base leading-relaxed max-w-md">
+          {desc}
+        </p>
+
+        {/* Difficulty mix */}
+        <div className="mt-5 flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[0.55rem] tracking-widest uppercase text-stone-600">
+            Mix
+          </span>
+          <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-emerald-800/50 text-emerald-800 bg-emerald-700/5">
+            {easy} Easy
+          </span>
+          <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-red-700/60 text-red-700 bg-red-700/5">
+            {hard} Hard
+          </span>
+        </div>
 
         {/* Fingerprint + case bars */}
-        <div className="mt-8 grid grid-cols-[auto,1fr] gap-6 items-center">
+        <div className="mt-6 sm:mt-8 grid grid-cols-[auto,1fr] gap-4 sm:gap-6 items-center">
           <div className="flex items-center gap-3">
             <div
-              className={`w-14 h-14 rounded-full border-2 ${
+              className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 ${
                 tone === 'red' ? 'border-red-600' : 'border-cyan-600'
               } grid place-items-center ${accent}`}
             >
-              {tone === 'red' ? <Shield size={22} /> : <Fingerprint size={22} />}
+              {tone === 'red' ? <Shield size={20} /> : <Fingerprint size={20} />}
             </div>
             <div>
               <div className="font-mono text-[0.55rem] tracking-widest uppercase text-stone-600">
                 Case files
               </div>
-              <div className={`font-serif italic text-5xl ${accent} leading-none`}>
+              <div className={`font-serif italic text-4xl sm:text-5xl ${accent} leading-none`}>
                 {String(cases).padStart(2, '0')}
               </div>
             </div>
           </div>
-          <div className="flex items-end gap-1 h-14">
+          <div className="flex items-end gap-1 h-12 sm:h-14">
             {Array.from({ length: cases }).map((_, i) => (
               <div
                 key={i}

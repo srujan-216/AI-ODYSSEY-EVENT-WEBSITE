@@ -158,7 +158,7 @@ export function Wheel({ cases, rotation, spinning, color, landedIndex }: WheelPr
                     angle. */}
                 <g transform={`translate(${lx} ${ly}) rotate(${midAngle + 90})`}>
                   <text
-                    y={-10}
+                    y={-16}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     className="font-display"
@@ -170,7 +170,7 @@ export function Wheel({ cases, rotation, spinning, color, landedIndex }: WheelPr
                     CASE
                   </text>
                   <text
-                    y={12}
+                    y={6}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     className="font-display"
@@ -180,6 +180,18 @@ export function Wheel({ cases, rotation, spinning, color, landedIndex }: WheelPr
                     style={{ letterSpacing: '0.04em' }}
                   >
                     {cases[i].label}
+                  </text>
+                  <text
+                    y={26}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    className="font-display"
+                    fontSize={9}
+                    fontWeight={800}
+                    fill={cases[i].difficulty === 'hard' ? '#7c2d12' : '#064e3b'}
+                    style={{ letterSpacing: '0.3em' }}
+                  >
+                    {cases[i].difficulty === 'hard' ? 'HARD' : 'EASY'}
                   </text>
                 </g>
               </g>

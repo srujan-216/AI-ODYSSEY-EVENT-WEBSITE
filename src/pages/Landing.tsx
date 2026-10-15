@@ -35,8 +35,12 @@ export function Landing() {
         <span className="ambient-pin"       style={{ top: '82%', right: '12%',animationDelay: '-9s'  }} aria-hidden />
         <span className="ambient-pin cyan"  style={{ top: '46%', right: '38%',animationDelay: '-4.5s' }} aria-hidden />
 
-        {/* Corner HUD readout */}
-        <div className="hud-readout" style={{ top: '1.25rem', right: '1.5rem' }} aria-hidden>
+        {/* Corner HUD readout — hidden on small phones (overlaps title) */}
+        <div
+          className="hud-readout hidden sm:block"
+          style={{ top: '1.25rem', right: '1.5rem' }}
+          aria-hidden
+        >
           <div>LAT&nbsp;<b>17.3850°&nbsp;N</b></div>
           <div>LON&nbsp;<b>78.4867°&nbsp;E</b></div>
           <div>CH&nbsp;<em>07</em>&nbsp;· SIG&nbsp;<b>NOMINAL</b></div>

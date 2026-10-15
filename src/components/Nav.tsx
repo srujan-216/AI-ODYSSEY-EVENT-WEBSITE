@@ -24,19 +24,19 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-bg-900/70 border-b border-cyber-cyan/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center" aria-label="Home">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 h-16 flex items-center justify-between gap-2">
+        <Link to="/" className="flex items-center shrink-0 min-w-0" aria-label="Home">
           <Logo />
         </Link>
 
-        <nav className="hidden md:flex items-center gap-1 ml-10">
+        <nav className="hidden lg:flex items-center gap-1 ml-6 xl:ml-10">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               end={l.to === '/'}
               className={({ isActive }) =>
-                `relative px-4 py-2 font-display tracking-[0.2em] uppercase text-xs transition-colors
+                `relative px-3 xl:px-4 py-2 font-display tracking-[0.2em] uppercase text-xs transition-colors
                  ${isActive ? 'text-white' : 'text-slate-300 hover:text-white'}`
               }
             >
@@ -54,7 +54,7 @@ export function Nav() {
             <NavLink
               to="/admin"
               className={({ isActive }) =>
-                `relative px-4 py-2 font-display tracking-[0.2em] uppercase text-xs transition-colors
+                `relative px-3 xl:px-4 py-2 font-display tracking-[0.2em] uppercase text-xs transition-colors
                  ${isActive ? 'text-cyber-violet' : 'text-cyber-violet/80 hover:text-cyber-violet'}`
               }
             >
@@ -63,7 +63,7 @@ export function Nav() {
           )}
         </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-2 xl:gap-3 shrink-0">
           <a
             href={REGISTER_URL}
             target="_blank"
@@ -74,7 +74,10 @@ export function Nav() {
           </a>
           {session && isAdmin ? (
             <>
-              <span className="chip chip-violet" title={`${displayNameFor(profile)} · ${profile?.email ?? ''}`}>
+              <span
+                className="chip chip-violet hidden xl:inline-flex"
+                title={`${displayNameFor(profile)} · ${profile?.email ?? ''}`}
+              >
                 <Shield size={11} /> {profile?.role?.toUpperCase()}
               </span>
               <button
@@ -100,7 +103,7 @@ export function Nav() {
 
         <button
           onClick={() => setOpen((o) => !o)}
-          className="md:hidden text-cyber-cyan p-2"
+          className="lg:hidden text-cyber-cyan p-2 shrink-0"
           aria-label="Toggle menu"
           aria-expanded={open}
         >
@@ -109,7 +112,7 @@ export function Nav() {
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-cyber-cyan/10 bg-bg-900/95">
+        <div className="lg:hidden border-t border-cyber-cyan/10 bg-bg-900/95">
           <div className="px-4 py-4 flex flex-col gap-1">
             {links.map((l) => (
               <NavLink

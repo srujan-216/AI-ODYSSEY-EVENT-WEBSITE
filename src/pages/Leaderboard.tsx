@@ -234,18 +234,20 @@ export function Leaderboard() {
               02 //
             </div>
 
-            {/* Table Container (Fixed Column Widths Spread Across Full Table) */}
-            <div className="w-full">
-              <table className="w-full table-fixed border-collapse text-left">
+            {/* Table Container (Fixed Column Widths Spread Across Full Table).
+                Allow horizontal scroll on sub-520px viewports so columns stay
+                legible rather than squeezing to nothing. */}
+            <div className="w-full overflow-x-auto">
+              <table className="w-full table-fixed border-collapse text-left min-w-[520px]">
                 {/* Column Headers */}
                 <thead>
-                  <tr className="border-b border-cyan-400/35 bg-cyan-950/25 text-[#38bdf8] font-mono font-bold text-[11px] sm:text-[12px] tracking-[0.12em] uppercase">
+                  <tr className="border-b border-cyan-400/35 bg-cyan-950/25 text-[#38bdf8] font-mono font-bold text-[10px] sm:text-[12px] tracking-[0.08em] sm:tracking-[0.12em] uppercase">
                     <th className="py-3 px-2 w-[11%] text-center">RANK</th>
-                    <th className="py-3 px-4 w-[24%] text-center">TEAM NAME</th>
-                    <th className="py-3 px-3 w-[18%] text-center">TRACK</th>
-                    <th className="py-3 px-3 w-[16%] text-center">CASES SOLVED</th>
-                    <th className="py-3 px-3 w-[14%] text-center">SCORE</th>
-                    <th className="py-3 px-4 w-[17%] text-center">COMPLETION TIME</th>
+                    <th className="py-3 px-2 sm:px-4 w-[24%] text-center">TEAM</th>
+                    <th className="py-3 px-2 sm:px-3 w-[18%] text-center">TRACK</th>
+                    <th className="py-3 px-2 sm:px-3 w-[16%] text-center">CASES</th>
+                    <th className="py-3 px-2 sm:px-3 w-[14%] text-center">SCORE</th>
+                    <th className="py-3 px-2 sm:px-4 w-[17%] text-center">TIME</th>
                   </tr>
                 </thead>
 
@@ -319,6 +321,37 @@ export function Leaderboard() {
 
           {/* Under-table Bright Cyan Glow Bar */}
           <div className="w-full h-[3px] bg-gradient-to-r from-transparent via-[#00f0ff] to-transparent shadow-[0_0_18px_#00f0ff] -mt-[1px]" />
+        </div>
+
+        {/* Ranking rubric — visible so teams know exactly how they're graded */}
+        <div className="relative w-full max-w-[1020px] mt-6 px-2 sm:px-4">
+          <div className="rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-4 py-3 sm:px-5 sm:py-4">
+            <div className="font-mono text-[0.55rem] sm:text-[0.6rem] tracking-[0.3em] uppercase text-cyan-300 mb-2 text-center">
+              // Ranking rubric
+            </div>
+            <ol className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-5 gap-y-2 text-[11px] sm:text-xs text-slate-200">
+              <li className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full border border-cyan-400 text-cyan-300 font-mono text-[10px] grid place-items-center">
+                  1
+                </span>
+                <span>More cases solved</span>
+              </li>
+              <li className="text-slate-600 hidden sm:inline">→</li>
+              <li className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full border border-cyan-400 text-cyan-300 font-mono text-[10px] grid place-items-center">
+                  2
+                </span>
+                <span>Higher report score</span>
+              </li>
+              <li className="text-slate-600 hidden sm:inline">→</li>
+              <li className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full border border-cyan-400 text-cyan-300 font-mono text-[10px] grid place-items-center">
+                  3
+                </span>
+                <span>Submitted earliest</span>
+              </li>
+            </ol>
+          </div>
         </div>
 
         {/* ── BOTTOM STAGE: PERSPECTIVE CYBER DAIS & REFLECTIONS ── */}

@@ -1,11 +1,19 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, forwardRef, useImperativeHandle, useMemo, useState } from 'react'
 import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock, Stamp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { ResultRow, Track } from '../lib/types'
-import { TRACK_LABEL, CASE_COUNT } from '../lib/cases'
+import { TRACK_LABEL, CASE_COUNT, difficultyFor } from '../lib/cases'
 import { useToast } from '../components/Toast'
 
 const CASE_NUMBERS = Array.from({ length: CASE_COUNT }, (_, i) => i + 1)
+
+export interface ResultsEditorHandle {
+  startWithPrefill: (prefill: {
+    team_name: string
+    track: Track
+    case_number: number
+  }) => void
+}
 
 interface Props {
   rows: ResultRow[]
@@ -46,12 +54,42 @@ function buildEmpty(): Draft {
   }
 }
 
-export function ResultsEditor({ rows, onChanged }: Props) {
+export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function ResultsEditor(
+  { rows, onChanged },
+  ref,
+) {
   const toast = useToast()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'all' | Track>('all')
   const [editing, setEditing] = useState<Draft | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useImperativeHandle(ref, () => ({
+    startWithPrefill: (prefill) => {
+      // Look up any existing result for this team+track+case so edits
+      // overlay the existing row instead of creating a duplicate.
+      const existing = rows.find(
+        (r) =>
+          r.team_name.toLowerCase() === prefill.team_name.toLowerCase() &&
+          r.track === prefill.track &&
+          r.case_number === prefill.case_number,
+      )
+      if (existing) {
+        start(existing)
+      } else {
+        setEditing({
+          ...buildEmpty(),
+          team_name: prefill.team_name,
+          track: prefill.track,
+          case_number: prefill.case_number,
+        })
+      }
+      // Scroll the modal into view on mobile — the editor is below the fold.
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    },
+  }))
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -113,6 +151,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
       team_name: name,
       track: editing.track,
       case_number: caseNum,
+      difficulty: difficultyFor(caseNum),
       score: Math.round(score),
       completion_time: editing.completion_time
         ? new Date(editing.completion_time).toISOString()
@@ -412,4 +451,4 @@ export function ResultsEditor({ rows, onChanged }: Props) {
       )}
     </div>
   )
-}
+})

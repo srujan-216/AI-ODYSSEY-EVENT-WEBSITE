@@ -21,7 +21,7 @@ export function HeroTitle() {
   return (
     <h1
       className="font-display font-black text-stone-50 leading-[0.86] tracking-[-0.045em]"
-      style={{ fontSize: 'clamp(3.4rem, 13vw, 11rem)' }}
+      style={{ fontSize: 'clamp(2.4rem, 13vw, 11rem)' }}
       aria-label="AI ODYSSEY × CODEHUNT"
     >
       {/* AI ODYSSEY — layered glyph stack, scan R->L in red */}
@@ -30,10 +30,10 @@ export function HeroTitle() {
       </span>
 
       {/* × CODEHUNT — layered glyph stack, scan L->R in amber */}
-      <span className="flex items-baseline gap-4 md:gap-6">
+      <span className="flex items-baseline gap-2 sm:gap-4 md:gap-6">
         <span
           className="font-serif italic font-bold hero-x text-red-500"
-          style={{ fontSize: 'clamp(2.4rem, 9vw, 8rem)' }}
+          style={{ fontSize: 'clamp(1.6rem, 9vw, 8rem)' }}
         >
           ×
         </span>

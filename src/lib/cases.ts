@@ -8,23 +8,35 @@ import type { Track } from './types'
  * `public/cases/` named `case-NN.pdf`, zero-padded (`case-01.pdf` …
  * `case-06.pdf`). To re-point a single case, edit `pdfPath` below —
  * it is the only source of truth.
+ *
+ * Difficulty split: **4 easy + 2 hard**. Mirrored on the server inside
+ * `assign_case()` in `supabase/migrations/0004_live_assignments.sql`. If you
+ * move the split, update both or the DB-stamped difficulty will drift from
+ * what the UI shows.
  */
+export type Difficulty = 'easy' | 'hard'
+
 export interface CaseConfig {
   number: number
   label: string
   title: string
   pdfPath: string
+  difficulty: Difficulty
 }
 
 export const CASE_COUNT = 6
 
-const SHARED_TITLES: Record<number, string> = {
-  1: 'The Vanishing Dataset',
-  2: 'Ghost in the Mainframe',
-  3: 'Operation Blackbox',
-  4: 'The Encrypted Letter',
-  5: 'Neural Heist',
-  6: 'Deepfake Protocol',
+const SHARED: Record<number, { title: string; difficulty: Difficulty }> = {
+  1: { title: 'The Vanishing Dataset', difficulty: 'easy' },
+  2: { title: 'Ghost in the Mainframe', difficulty: 'easy' },
+  3: { title: 'Operation Blackbox', difficulty: 'easy' },
+  4: { title: 'The Encrypted Letter', difficulty: 'easy' },
+  5: { title: 'Neural Heist', difficulty: 'hard' },
+  6: { title: 'Deepfake Protocol', difficulty: 'hard' },
+}
+
+export function difficultyFor(caseNumber: number): Difficulty {
+  return SHARED[caseNumber]?.difficulty ?? 'easy'
 }
 
 function pad(n: number): string {
@@ -35,11 +47,13 @@ export function getCases(_track: Track): CaseConfig[] {
   // Both divisions carry the same six sealed case files.
   return Array.from({ length: CASE_COUNT }, (_, i) => {
     const n = i + 1
+    const meta = SHARED[n]
     return {
       number: n,
       label: pad(n),
-      title: SHARED_TITLES[n] ?? `Case ${pad(n)}`,
+      title: meta?.title ?? `Case ${pad(n)}`,
       pdfPath: `/cases/case-${pad(n)}.pdf`,
+      difficulty: meta?.difficulty ?? 'easy',
     }
   })
 }

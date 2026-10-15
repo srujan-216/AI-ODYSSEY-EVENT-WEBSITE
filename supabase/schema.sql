@@ -57,6 +57,7 @@ create table if not exists public.team_assignments (
   team_name_lower  text generated always as (lower(team_name)) stored,
   track            text not null check (track in ('junior','senior')),
   case_number      int  not null check (case_number between 1 and 6),
+  difficulty       text check (difficulty is null or difficulty in ('easy','hard')),
   assigned_at      timestamptz not null default now()
 );
 
@@ -83,6 +84,7 @@ declare
   v_row   public.team_assignments;
   v_name  text := btrim(p_team_name);
   v_pick  int;
+  v_diff  text;
 begin
   if v_name is null or char_length(v_name) < 2 or char_length(v_name) > 60 then
     raise exception 'Team name must be 2-60 characters';
@@ -138,8 +140,11 @@ begin
     end if;
   end if;
 
-  insert into public.team_assignments (team_name, track, case_number)
-  values (v_name, p_track, v_pick)
+  -- Shared catalog: 1..4 easy, 5..6 hard. Mirrors src/lib/cases.ts.
+  v_diff := case when v_pick between 5 and 6 then 'hard' else 'easy' end;
+
+  insert into public.team_assignments (team_name, track, case_number, difficulty)
+  values (v_name, p_track, v_pick, v_diff)
   returning * into v_row;
 
   return v_row;
@@ -157,6 +162,7 @@ create table if not exists public.results (
   team_name_lower text generated always as (lower(team_name)) stored,
   track           text not null check (track in ('junior','senior')),
   case_number     int  not null check (case_number between 1 and 6),
+  difficulty      text check (difficulty is null or difficulty in ('easy','hard')),
   score           int  not null check (score >= 0 and score <= 100000),
   completion_time timestamptz,
   status          text check (status is null or char_length(status) <= 80),
@@ -192,7 +198,9 @@ create trigger results_touch_insert
   for each row execute function public.touch_updated_at();
 
 -- -----------------------------------------------------------------------------
--- 5. Realtime: enable change streams on results
+-- 5. Realtime: enable change streams on results AND team_assignments
+--    (team_assignments drives the admin control-room live feed — the moment
+--     a team spins the wheel, the row lands and the admin sees it.)
 -- -----------------------------------------------------------------------------
 do $$
 begin
@@ -201,6 +209,12 @@ begin
     where pubname = 'supabase_realtime' and tablename = 'results'
   ) then
     alter publication supabase_realtime add table public.results;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and tablename = 'team_assignments'
+  ) then
+    alter publication supabase_realtime add table public.team_assignments;
   end if;
 end;
 $$;

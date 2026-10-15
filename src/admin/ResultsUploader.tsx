@@ -12,6 +12,7 @@ import { downloadCsvTemplate, parseCsv, REQUIRED_COLUMNS } from './csv'
 import type { ResultRow, RowValidation } from '../lib/types'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
+import { difficultyFor } from '../lib/cases'
 
 interface Props {
   existing: ResultRow[]
@@ -69,6 +70,7 @@ export function ResultsUploader({ existing, onImported }: Props) {
     setBusy(true)
     const payload = valid.map((r) => ({
       ...r.parsed!,
+      difficulty: difficultyFor(r.parsed!.case_number),
       is_solved: r.parsed!.is_solved ?? true,
       is_demo: false,
     }))
@@ -89,18 +91,17 @@ export function ResultsUploader({ existing, onImported }: Props) {
   }
 
   return (
-    <div className="glass rounded-2xl p-6 md:p-8">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="section-title">// Bulk upload</div>
-          <h2 className="h-display text-xl md:text-2xl text-white mt-1">Upload Results (CSV)</h2>
-          <p className="text-sm text-slate-400 mt-2 max-w-xl">
+    <div>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
             Required columns: <code>{REQUIRED_COLUMNS.join(', ')}</code>. Optional:{' '}
-            <code>completion_time, status</code>. Duplicate team+track rows will <em>update</em>{' '}
-            the existing record. Invalid rows are reported and never saved.
+            <code>completion_time, status, is_solved</code>. Duplicate team+track+case
+            rows <em>update</em> the existing record. Invalid rows are reported and
+            never saved.
           </p>
         </div>
-        <button onClick={downloadCsvTemplate} className="cyber-btn cyber-btn-ghost text-xs">
+        <button onClick={downloadCsvTemplate} className="cyber-btn cyber-btn-ghost text-xs shrink-0">
           <Download size={14} /> Template
         </button>
       </div>

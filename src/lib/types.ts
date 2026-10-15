@@ -1,10 +1,12 @@
 export type Track = 'junior' | 'senior'
+export type Difficulty = 'easy' | 'hard'
 
 export interface TeamAssignment {
   id: string
   team_name: string
   track: Track
   case_number: number
+  difficulty: Difficulty | null
   assigned_at: string
 }
 
@@ -25,6 +27,7 @@ export interface ResultRow {
   team_name: string
   track: Track
   case_number: number
+  difficulty: Difficulty | null
   score: number
   completion_time: string | null
   status: string | null

@@ -104,6 +104,7 @@ function DashboardFor({ track }: { track: Track }) {
         team_name: name,
         track,
         case_number: pickIndex + 1,
+        difficulty: pickIndex + 1 >= 5 ? 'hard' : 'easy',
         assigned_at: new Date().toISOString(),
       }
       const target = computeTargetRotation(rotation, pickIndex, cases.length)
@@ -186,19 +187,22 @@ function DashboardFor({ track }: { track: Track }) {
     <section className="relative overflow-hidden grain">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 md:py-14 relative z-10">
         {/* ────── CASE HEADER ────── */}
-        <div className="flex items-start justify-between flex-wrap gap-6 mb-10">
-          <div>
-            <div className="flex items-center gap-3 text-[0.65rem] font-mono tracking-[0.3em] uppercase text-stone-400">
+        <div className="flex items-start justify-between flex-wrap gap-4 sm:gap-6 mb-10">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-x-3 gap-y-1 text-[0.6rem] sm:text-[0.65rem] font-mono tracking-[0.3em] uppercase text-stone-400 flex-wrap">
               <span className="w-2 h-2 bg-red-500 rounded-full breath" />
               <span>Case intake</span>
-              <span className="text-stone-600">/</span>
+              <span className="text-stone-600 hidden sm:inline">/</span>
               <span className={tone === 'red' ? 'text-red-500' : 'text-cyan-500'}>
                 {TRACK_LABEL[track]}
               </span>
-              <span className="text-stone-600">/</span>
-              <span>{cases.length} files sealed</span>
+              <span className="text-stone-600 hidden sm:inline">/</span>
+              <span>
+                {cases.filter((c) => c.difficulty === 'easy').length} easy ·{' '}
+                {cases.filter((c) => c.difficulty === 'hard').length} hard
+              </span>
             </div>
-            <h1 className="font-serif italic text-stone-50 text-4xl md:text-5xl mt-3 leading-[1.05]">
+            <h1 className="font-serif italic text-stone-50 text-3xl sm:text-4xl md:text-5xl mt-3 leading-[1.05]">
               Investigation <span className="scribble">dashboard</span>.
             </h1>
             <p className="mt-3 text-stone-400 max-w-xl text-sm leading-relaxed">
@@ -208,7 +212,7 @@ function DashboardFor({ track }: { track: Track }) {
               report to a coordinator.
             </p>
           </div>
-          <span className="stamp stamp-tilt mt-1 shrink-0" style={{ fontSize: '0.75rem' }}>
+          <span className="stamp stamp-tilt mt-1 shrink-0 hidden sm:inline-block" style={{ fontSize: '0.75rem' }}>
             Case Intake · α
           </span>
         </div>
@@ -445,12 +449,25 @@ function DashboardFor({ track }: { track: Track }) {
             {/* Case index */}
             <div className="paper rounded-sm p-5 relative">
               <span className="tape tape-red" style={{ top: -10, right: 20 }} />
-              <div className="font-mono text-[0.6rem] tracking-widest uppercase text-stone-600 mb-3">
-                Case index · {cases.length} files
+              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                <div className="font-mono text-[0.6rem] tracking-widest uppercase text-stone-600">
+                  Case index · {cases.length} files
+                </div>
+                <div className="flex items-center gap-2 text-[0.55rem] font-mono tracking-widest uppercase">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
+                    <span className="text-stone-600">{cases.filter((c) => c.difficulty === 'easy').length} Easy</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-700" />
+                    <span className="text-stone-600">{cases.filter((c) => c.difficulty === 'hard').length} Hard</span>
+                  </span>
+                </div>
               </div>
               <ul className="space-y-1.5">
                 {cases.map((c) => {
                   const isMine = assignment?.case_number === c.number
+                  const hard = c.difficulty === 'hard'
                   return (
                     <li
                       key={c.number}
@@ -471,9 +488,18 @@ function DashboardFor({ track }: { track: Track }) {
                         <span className="font-serif italic text-sm truncate">
                           {c.title}
                         </span>
+                        <span
+                          className={`shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border ${
+                            hard
+                              ? 'border-red-700/60 text-red-700 bg-red-700/5'
+                              : 'border-emerald-800/50 text-emerald-800 bg-emerald-700/5'
+                          }`}
+                        >
+                          {hard ? 'Hard' : 'Easy'}
+                        </span>
                       </div>
                       {isMine ? (
-                        <span className="stamp" style={{ fontSize: '0.5rem', padding: '0.08em 0.3em' }}>
+                        <span className="stamp shrink-0" style={{ fontSize: '0.5rem', padding: '0.08em 0.3em' }}>
                           Yours
                         </span>
                       ) : (
@@ -519,34 +545,55 @@ interface RevealProps {
 }
 
 function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
+  const hard = assignedCase.difficulty === 'hard'
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.96, rotate: -1 }}
       animate={{ opacity: 1, y: 0, scale: 1, rotate: -1 }}
       transition={{ type: 'spring', stiffness: 180, damping: 20 }}
-      className="paper rounded-sm p-7 relative torn-bottom pb-14"
+      className="paper rounded-sm p-5 sm:p-7 relative torn-bottom pb-14"
     >
       <span className="tape tape-red" style={{ top: -10, left: 60 }} />
       <span className="tape tape-violet" style={{ top: -10, right: 60, transform: 'rotate(4deg)' }} />
-      <span className="absolute top-6 right-6 stamp stamp-tilt" style={{ fontSize: '0.75rem' }}>
-        Classified
-      </span>
-      {isDemo && (
-        <span
-          className="absolute top-6 right-32 stamp"
-          style={{ fontSize: '0.55rem', padding: '0.1em 0.4em', color: '#b45309', borderColor: '#b45309' }}
-        >
-          Demo
+      {/* Stamps — stacked on mobile so Classified + Demo never overlap the
+          title block. On md+ they float to the top-right corner as before. */}
+      <div className="flex md:absolute md:top-6 md:right-6 items-center gap-2 justify-end mb-3 md:mb-0">
+        <span className="stamp stamp-tilt" style={{ fontSize: '0.65rem' }}>
+          Classified
         </span>
-      )}
+        <span
+          className="stamp stamp-tilt"
+          style={{
+            fontSize: '0.55rem',
+            padding: '0.1em 0.4em',
+            color: hard ? '#7f1d1d' : '#064e3b',
+            borderColor: hard ? '#7f1d1d' : '#064e3b',
+          }}
+        >
+          {hard ? 'Hard' : 'Easy'}
+        </span>
+        {isDemo && (
+          <span
+            className="stamp"
+            style={{
+              fontSize: '0.55rem',
+              padding: '0.1em 0.4em',
+              color: '#b45309',
+              borderColor: '#b45309',
+            }}
+          >
+            Demo
+          </span>
+        )}
+      </div>
 
       <div className="font-mono text-[0.6rem] tracking-widest uppercase text-stone-600">
         Dossier · AI-ODY/{String(assignedCase.number).padStart(3, '0')}-α
       </div>
-      <h3 className="font-serif italic text-stone-900 text-3xl md:text-4xl leading-tight mt-2">
+      <h3 className="font-serif italic text-stone-900 text-2xl sm:text-3xl md:text-4xl leading-tight mt-2 break-words">
         Case {assignedCase.label} — {assignedCase.title}
       </h3>
-      <div className="mt-2 font-hand text-red-600 text-xl">
+      <div className="mt-2 font-hand text-red-600 text-lg sm:text-xl break-words">
         — assigned to Team "{assignment.team_name}".
       </div>
 
