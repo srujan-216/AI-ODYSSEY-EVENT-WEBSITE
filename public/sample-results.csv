@@ -1,6 +1,6 @@
-team_name,track,score,completion_time,status
-Null Pointer,senior,480,2026-02-14T13:42:00Z,Case 04 cleared
-GhostProtocol,senior,455,2026-02-14T14:11:00Z,Case 02 cleared
-Sentinel,junior,430,2026-02-14T13:58:00Z,Case 05 cleared
-Watchdogs,junior,410,,In progress
-Zero Cool,senior,395,,In progress
+team_name,track,case_number,score,completion_time,status,is_solved
+Null Pointer,senior,1,100,2026-02-14T13:42:00Z,Cleared,true
+Null Pointer,senior,2,95,2026-02-14T14:15:00Z,Cleared,true
+GhostProtocol,senior,1,90,2026-02-14T14:11:00Z,Cleared,true
+Sentinel,junior,3,100,2026-02-14T13:58:00Z,Cleared,true
+Watchdogs,junior,1,0,,In progress,false

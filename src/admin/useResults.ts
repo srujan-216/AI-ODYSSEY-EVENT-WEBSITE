@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import type { LeaderboardEntry } from '../lib/types'
+import type { ResultRow } from '../lib/types'
 
 export function useResults() {
-  const [rows, setRows] = useState<LeaderboardEntry[]>([])
+  const [rows, setRows] = useState<ResultRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,13 +16,14 @@ export function useResults() {
     const { data, error } = await supabase
       .from('results')
       .select('*')
-      .order('score', { ascending: false })
+      .order('team_name', { ascending: true })
+      .order('case_number', { ascending: true })
     if (error) {
       setError(error.message)
       setRows([])
     } else {
       setError(null)
-      setRows((data as LeaderboardEntry[]) ?? [])
+      setRows((data as ResultRow[]) ?? [])
     }
     setLoading(false)
   }, [])

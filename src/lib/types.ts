@@ -12,9 +12,23 @@ export interface LeaderboardEntry {
   id: string
   team_name: string
   track: Track
+  cases_solved: number
   score: number
   completion_time: string | null
   status: string | null
+  is_demo: boolean
+  updated_at: string
+}
+
+export interface ResultRow {
+  id: string
+  team_name: string
+  track: Track
+  case_number: number
+  score: number
+  completion_time: string | null
+  status: string | null
+  is_solved: boolean
   is_demo: boolean
   updated_at: string
 }
@@ -29,9 +43,11 @@ export interface Profile {
 export interface CsvRow {
   team_name: string
   track: Track
+  case_number: number
   score: number
   completion_time?: string | null
   status?: string | null
+  is_solved?: boolean
 }
 
 export interface RowValidation {
@@ -42,3 +58,4 @@ export interface RowValidation {
   isDuplicateOfExisting: boolean
   isDuplicateInFile: boolean
 }
+

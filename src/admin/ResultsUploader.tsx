@@ -9,12 +9,12 @@ import {
   X,
 } from 'lucide-react'
 import { downloadCsvTemplate, parseCsv, REQUIRED_COLUMNS } from './csv'
-import type { LeaderboardEntry, RowValidation } from '../lib/types'
+import type { ResultRow, RowValidation } from '../lib/types'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 
 interface Props {
-  existing: LeaderboardEntry[]
+  existing: ResultRow[]
   onImported: () => void
 }
 
@@ -60,8 +60,8 @@ export function ResultsUploader({ existing, onImported }: Props) {
     }
     const confirmed = window.confirm(
       `Import ${valid.length} rows?\n` +
-        `• ${inserts} new team(s) will be inserted\n` +
-        `• ${updates} existing team(s) will be updated (same team_name + track)\n\n` +
+        `• ${inserts} new case result(s) will be inserted\n` +
+        `• ${updates} existing case result(s) will be updated (same team + track + case)\n\n` +
         `${invalid.length} invalid row(s) will be skipped and reported.`,
     )
     if (!confirmed) return
@@ -69,10 +69,11 @@ export function ResultsUploader({ existing, onImported }: Props) {
     setBusy(true)
     const payload = valid.map((r) => ({
       ...r.parsed!,
+      is_solved: r.parsed!.is_solved ?? true,
       is_demo: false,
     }))
     const { error } = await supabase.from('results').upsert(payload, {
-      onConflict: 'team_name_lower,track',
+      onConflict: 'team_name_lower,track,case_number',
     })
     setBusy(false)
     if (error) {

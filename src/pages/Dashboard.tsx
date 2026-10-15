@@ -33,11 +33,12 @@ function DashboardFor({ track }: { track: Track }) {
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [assignment, setAssignment] = useState<TeamAssignment | null>(null)
+  const [assignments, setAssignments] = useState<TeamAssignment[]>([])
   const [lookupBusy, setLookupBusy] = useState(false)
   const [landedIndex, setLandedIndex] = useState<number | null>(null)
   const [isDemoAssignment, setIsDemoAssignment] = useState(false)
 
-  // Try to recover existing assignment on team-name change (debounced)
+  // Try to recover existing assignments on team-name change (debounced)
   useEffect(() => {
     if (!teamName.trim() || !isSupabaseConfigured) return
     const q = teamName.trim()
@@ -47,14 +48,17 @@ function DashboardFor({ track }: { track: Track }) {
         .select('*')
         .eq('team_name_lower', q.toLowerCase())
         .eq('track', track)
-        .maybeSingle()
-      if (data) {
-        setAssignment(data as TeamAssignment)
-        const idx = (data as TeamAssignment).case_number - 1
+        .order('assigned_at', { ascending: false })
+      if (data && data.length > 0) {
+        const rows = data as TeamAssignment[]
+        setAssignments(rows)
+        setAssignment(rows[0])
+        const idx = rows[0].case_number - 1
         const final = computeTargetRotation(0, idx, cases.length)
         setRotation(final % 360)
         setLandedIndex(idx)
       } else {
+        setAssignments([])
         setAssignment(null)
       }
     }, 350)
@@ -71,8 +75,9 @@ function DashboardFor({ track }: { track: Track }) {
       toast.push('Team name must be 2–60 characters.', 'error')
       return
     }
-    if (assignment) {
-      toast.push('Your team already has an assigned case.', 'info')
+    const alreadyDealt = new Set(assignments.map((a) => a.case_number))
+    if (alreadyDealt.size >= cases.length) {
+      toast.push('All cases on this track are already dealt to your team.', 'info')
       return
     }
 
@@ -84,23 +89,31 @@ function DashboardFor({ track }: { track: Track }) {
     ).matches
     const settleMs = reduceMotion ? 60 : 5700
 
-    // Demo-mode path: no backend configured. Pick locally.
+    // Demo-mode path: no backend configured. Pick locally among remaining cases.
     if (!isSupabaseConfigured) {
-      const idx = Math.floor(Math.random() * cases.length)
+      const remainingIndices = cases
+        .map((_, i) => i)
+        .filter((i) => !alreadyDealt.has(i + 1))
+      const pickIndex =
+        remainingIndices.length > 0
+          ? remainingIndices[Math.floor(Math.random() * remainingIndices.length)]
+          : Math.floor(Math.random() * cases.length)
+
       const assigned: TeamAssignment = {
         id: `demo-${Date.now()}`,
         team_name: name,
         track,
-        case_number: idx + 1,
+        case_number: pickIndex + 1,
         assigned_at: new Date().toISOString(),
       }
-      const target = computeTargetRotation(rotation, idx, cases.length)
+      const target = computeTargetRotation(rotation, pickIndex, cases.length)
       setRotation(target)
       setTimeout(() => {
         setAssignment(assigned)
+        setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
         setIsDemoAssignment(true)
         setSpinning(false)
-        setLandedIndex(idx)
+        setLandedIndex(pickIndex)
         toast.push('Demo spin — connect Supabase to persist real assignments.', 'info')
       }, settleMs)
       return
@@ -123,9 +136,11 @@ function DashboardFor({ track }: { track: Track }) {
 
       setTimeout(() => {
         setAssignment(assigned)
+        setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
         setIsDemoAssignment(false)
         setSpinning(false)
         setLandedIndex(idx)
+        toast.push(`Case 0${assigned.case_number} assigned!`, 'success')
       }, settleMs)
     } catch (e: any) {
       setSpinning(false)
@@ -147,11 +162,15 @@ function DashboardFor({ track }: { track: Track }) {
         .select('*')
         .eq('team_name_lower', q.toLowerCase())
         .eq('track', track)
-        .maybeSingle()
-      if (data) {
-        setAssignment(data as TeamAssignment)
-        toast.push('Previous assignment restored.', 'success')
+        .order('assigned_at', { ascending: false })
+      if (data && data.length > 0) {
+        const rows = data as TeamAssignment[]
+        setAssignments(rows)
+        setAssignment(rows[0])
+        toast.push(`Found ${rows.length} existing case assignment(s).`, 'success')
       } else {
+        setAssignments([])
+        setAssignment(null)
         toast.push('No previous assignment on this division yet.', 'info')
       }
     } finally {
@@ -265,7 +284,7 @@ function DashboardFor({ track }: { track: Track }) {
 
               {/* Spin button */}
               <div className="relative mt-6">
-                {!spinning && !assignment && teamName.trim().length >= 2 && (
+                {!spinning && assignments.length < cases.length && teamName.trim().length >= 2 && (
                   <span
                     aria-hidden
                     className="absolute inset-[-6px] rounded-sm blur-xl breath pointer-events-none bg-red-500/30"
@@ -273,7 +292,7 @@ function DashboardFor({ track }: { track: Track }) {
                 )}
                 <button
                   onClick={spin}
-                  disabled={spinning || !!assignment}
+                  disabled={spinning || assignments.length >= cases.length}
                   className="relative w-full bg-stone-900 text-stone-50 py-5 font-display tracking-[0.3em] uppercase text-sm font-bold overflow-hidden border-2 border-stone-900 hover:bg-red-600 hover:border-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
                   style={{
                     clipPath:
@@ -284,11 +303,20 @@ function DashboardFor({ track }: { track: Track }) {
                     {spinning ? (
                       <>
                         <Loader2 size={18} className="animate-spin" />
-                        Dealing a case…
+                        Dealing next case…
                       </>
-                    ) : assignment ? (
+                    ) : assignments.length >= cases.length ? (
                       <>
-                        <FileSearch size={18} /> Case already dealt
+                        <FileSearch size={18} /> All 5 cases dealt
+                      </>
+                    ) : assignments.length > 0 ? (
+                      <>
+                        <Sparkles size={18} />
+                        Deal additional case ({assignments.length}/5)
+                        <RotateCw
+                          size={16}
+                          className="opacity-80 transition-transform group-hover:rotate-180 duration-700"
+                        />
                       </>
                     ) : (
                       <>
@@ -303,8 +331,10 @@ function DashboardFor({ track }: { track: Track }) {
                   </span>
                 </button>
                 <p className="text-[0.62rem] text-stone-600 mt-2 text-center tracking-widest uppercase font-mono">
-                  {assignment
-                    ? '> case locked for this team <'
+                  {assignments.length >= cases.length
+                    ? '> all 5 cases assigned to this team <'
+                    : assignments.length > 0
+                    ? `> ${assignments.length} case(s) active · press to request additional case <`
                     : spinning
                     ? '> routing through intelligence… <'
                     : teamName.trim().length < 2
@@ -313,6 +343,33 @@ function DashboardFor({ track }: { track: Track }) {
                 </p>
               </div>
             </div>
+
+            {/* Case selector if multiple cases dealt */}
+            {assignments.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[0.6rem] font-mono tracking-widest uppercase text-stone-400">
+                  Dealt files:
+                </span>
+                {assignments.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => {
+                      setAssignment(a)
+                      const idx = a.case_number - 1
+                      setRotation(computeTargetRotation(0, idx, cases.length) % 360)
+                      setLandedIndex(idx)
+                    }}
+                    className={`px-3 py-1 text-xs font-mono rounded transition-all border ${
+                      assignment?.id === a.id
+                        ? 'bg-red-600 text-white border-red-500 shadow-sm'
+                        : 'bg-stone-900/80 text-stone-400 border-stone-800 hover:text-white hover:border-stone-600'
+                    }`}
+                  >
+                    Case 0{a.case_number}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Case reveal — torn paper when sealed */}
             {assignment && assignedCase && (

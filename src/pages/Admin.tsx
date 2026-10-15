@@ -113,6 +113,14 @@ function AdminInner() {
                 <span className={r.track === 'junior' ? 'chip ml-2' : 'chip chip-violet ml-2'}>
                   {TRACK_LABEL[r.track]}
                 </span>
+                <span className="chip ml-2 font-mono text-[0.65rem]">
+                  Case 0{r.case_number}
+                </span>
+                {r.is_solved ? (
+                  <span className="chip chip-success ml-2 text-[0.65rem]">Solved</span>
+                ) : (
+                  <span className="chip ml-2 text-[0.65rem] text-slate-400">In progress</span>
+                )}
                 {r.is_demo && <span className="chip chip-amber ml-2">Demo</span>}
               </div>
               <div className="text-xs text-slate-500 shrink-0">

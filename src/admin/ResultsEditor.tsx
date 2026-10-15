@@ -1,12 +1,12 @@
 import { FormEvent, useMemo, useState } from 'react'
-import { Pencil, Plus, Save, Search, Trash2, X, Loader2 } from 'lucide-react'
+import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { LeaderboardEntry, Track } from '../lib/types'
+import type { ResultRow, Track } from '../lib/types'
 import { TRACK_LABEL } from '../lib/cases'
 import { useToast } from '../components/Toast'
 
 interface Props {
-  rows: LeaderboardEntry[]
+  rows: ResultRow[]
   onChanged: () => void
 }
 
@@ -14,12 +14,22 @@ interface Draft {
   id?: string
   team_name: string
   track: Track
+  case_number: number
   score: string
   completion_time: string
   status: string
+  is_solved: boolean
 }
 
-const EMPTY: Draft = { team_name: '', track: 'junior', score: '', completion_time: '', status: '' }
+const EMPTY: Draft = {
+  team_name: '',
+  track: 'junior',
+  case_number: 1,
+  score: '',
+  completion_time: '',
+  status: '',
+  is_solved: false,
+}
 
 export function ResultsEditor({ rows, onChanged }: Props) {
   const toast = useToast()
@@ -35,7 +45,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
       .filter((r) => (q ? r.team_name.toLowerCase().includes(q) : true))
   }, [rows, filter, query])
 
-  const start = (r?: LeaderboardEntry) => {
+  const start = (r?: ResultRow) => {
     if (!r) {
       setEditing({ ...EMPTY })
       return
@@ -44,11 +54,13 @@ export function ResultsEditor({ rows, onChanged }: Props) {
       id: r.id,
       team_name: r.team_name,
       track: r.track,
+      case_number: r.case_number ?? 1,
       score: String(r.score),
       completion_time: r.completion_time
         ? new Date(r.completion_time).toISOString().slice(0, 16)
         : '',
       status: r.status ?? '',
+      is_solved: r.is_solved ?? true,
     })
   }
 
@@ -60,6 +72,9 @@ export function ResultsEditor({ rows, onChanged }: Props) {
 
     const name = editing.team_name.trim()
     if (!name) return toast.push('Team name required.', 'error')
+    const caseNum = Number(editing.case_number)
+    if (!Number.isInteger(caseNum) || caseNum < 1 || caseNum > 5)
+      return toast.push('Case must be between 1 and 5.', 'error')
     const score = Number(editing.score)
     if (!Number.isFinite(score) || score < 0 || score > 100000)
       return toast.push('Score must be a non-negative number.', 'error')
@@ -68,17 +83,19 @@ export function ResultsEditor({ rows, onChanged }: Props) {
       ...(editing.id ? { id: editing.id } : {}),
       team_name: name,
       track: editing.track,
+      case_number: caseNum,
       score: Math.round(score),
       completion_time: editing.completion_time
         ? new Date(editing.completion_time).toISOString()
         : null,
       status: editing.status.trim() || null,
+      is_solved: editing.is_solved,
       is_demo: false,
     }
 
     setBusy(true)
     const { error } = await supabase.from('results').upsert(payload, {
-      onConflict: 'team_name_lower,track',
+      onConflict: 'team_name_lower,track,case_number',
     })
     setBusy(false)
     if (error) return toast.push(`Save failed: ${error.message}`, 'error')
@@ -87,9 +104,9 @@ export function ResultsEditor({ rows, onChanged }: Props) {
     onChanged()
   }
 
-  const remove = async (r: LeaderboardEntry) => {
+  const remove = async (r: ResultRow) => {
     const ok = window.confirm(
-      `Delete result for "${r.team_name}" on ${TRACK_LABEL[r.track]}?\nThis cannot be undone.`,
+      `Delete result for "${r.team_name}" on ${TRACK_LABEL[r.track]} (Case ${r.case_number})?\nThis cannot be undone.`,
     )
     if (!ok) return
     const { error } = await supabase.from('results').delete().eq('id', r.id)
@@ -150,6 +167,8 @@ export function ResultsEditor({ rows, onChanged }: Props) {
             <tr className="text-left text-[0.6rem] tracking-[0.3em] uppercase text-slate-400">
               <th className="py-2 px-3">Team</th>
               <th className="py-2 px-3">Division</th>
+              <th className="py-2 px-3">Case</th>
+              <th className="py-2 px-3">Solved?</th>
               <th className="py-2 px-3">Status</th>
               <th className="py-2 px-3 text-right">Score</th>
               <th className="py-2 px-3 w-28"></th>
@@ -158,7 +177,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-slate-500 text-sm">
+                <td colSpan={7} className="p-6 text-center text-slate-500 text-sm">
                   No matching results.
                 </td>
               </tr>
@@ -175,6 +194,20 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                   <span className={r.track === 'junior' ? 'chip' : 'chip chip-violet'}>
                     {TRACK_LABEL[r.track]}
                   </span>
+                </td>
+                <td className="py-2 px-3 font-mono text-xs text-cyber-cyan">
+                  Case 0{r.case_number}
+                </td>
+                <td className="py-2 px-3">
+                  {r.is_solved ? (
+                    <span className="chip chip-success text-[0.65rem] inline-flex items-center gap-1">
+                      <CheckCircle2 size={10} /> Solved
+                    </span>
+                  ) : (
+                    <span className="chip text-[0.65rem] inline-flex items-center gap-1 text-slate-400">
+                      <Clock size={10} /> In progress
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 px-3 text-slate-300 text-xs">{r.status ?? '—'}</td>
                 <td className="py-2 px-3 text-right font-display text-lg text-cyber-cyan">
@@ -227,7 +260,7 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                   onChange={(e) => setEditing({ ...editing, team_name: e.target.value })}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="section-title block mb-1">Division</label>
                   <select
@@ -237,8 +270,24 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                       setEditing({ ...editing, track: e.target.value as Track })
                     }
                   >
-                    <option value="junior">The Mystery Squad</option>
-                    <option value="senior">The Mystery Masters</option>
+                    <option value="junior">Junior</option>
+                    <option value="senior">Senior</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="section-title block mb-1">Case #</label>
+                  <select
+                    className="cyber-input"
+                    value={editing.case_number}
+                    onChange={(e) =>
+                      setEditing({ ...editing, case_number: Number(e.target.value) })
+                    }
+                  >
+                    {[1, 2, 3, 4, 5].map((c) => (
+                      <option key={c} value={c}>
+                        Case 0{c}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -255,6 +304,31 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                 </div>
               </div>
               <div>
+                <label className="section-title block mb-1">Status / Solved state</label>
+                <div className="flex items-center gap-4 mt-1">
+                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="radio"
+                      name="is_solved"
+                      checked={editing.is_solved === true}
+                      onChange={() => setEditing({ ...editing, is_solved: true })}
+                      className="accent-cyber-cyan"
+                    />
+                    <span>Mark as Solved (counts on leaderboard)</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                    <input
+                      type="radio"
+                      name="is_solved"
+                      checked={editing.is_solved === false}
+                      onChange={() => setEditing({ ...editing, is_solved: false })}
+                      className="accent-cyber-cyan"
+                    />
+                    <span>In progress / Unsolved</span>
+                  </label>
+                </div>
+              </div>
+              <div>
                 <label className="section-title block mb-1">Completion time (optional)</label>
                 <input
                   className="cyber-input"
@@ -266,13 +340,13 @@ export function ResultsEditor({ rows, onChanged }: Props) {
                 />
               </div>
               <div>
-                <label className="section-title block mb-1">Status (optional)</label>
+                <label className="section-title block mb-1">Status text (optional)</label>
                 <input
                   className="cyber-input"
                   maxLength={80}
                   value={editing.status}
                   onChange={(e) => setEditing({ ...editing, status: e.target.value })}
-                  placeholder="e.g. Case 03 cleared"
+                  placeholder="e.g. Verified by Coordinator"
                 />
               </div>
             </div>

@@ -224,26 +224,36 @@ coordinators that a brief still needs uploading.
 
 ## Importing results (CSV)
 
+Each team can be assigned **up to five cases per track**, and the
+leaderboard ranks by `cases_solved` first, then total score of solved cases,
+then completion time. One CSV row = one (team × track × case).
+
 CSV template (`public/sample-results.csv`, also downloadable from the admin
 dashboard):
 
 ```csv
-team_name,track,score,completion_time,status
-Null Pointer,senior,480,2026-02-14T13:42:00Z,Case 07 cleared
-Sentinel,junior,430,,In progress
+team_name,track,case_number,score,completion_time,status,is_solved
+Null Pointer,senior,1,100,2026-02-14T13:42:00Z,Cleared,true
+Null Pointer,senior,2,95,2026-02-14T14:15:00Z,Cleared,true
+GhostProtocol,senior,1,90,2026-02-14T14:11:00Z,Cleared,true
+Sentinel,junior,3,100,2026-02-14T13:58:00Z,Cleared,true
+Watchdogs,junior,1,0,,In progress,false
 ```
 
-- Required columns: `team_name`, `track`, `score`.
-- Optional: `completion_time` (ISO 8601), `status` (free text, ≤ 80 chars).
+- Required columns: `team_name`, `track`, `case_number`, `score`.
+- Optional: `completion_time` (ISO 8601), `status` (free text, ≤ 80 chars),
+  `is_solved` (defaults to `false` — only solved rows count on the board).
 - `track` must be `junior` or `senior` (case-insensitive).
+- `case_number` is an integer `1..5`.
 - `score` is an integer `0..100000`.
-- Duplicate (team + track) rows **update** the existing record instead of
-  inserting a new one, so a corrected spreadsheet can be re-uploaded safely.
+- `is_solved` accepts `true` / `false` / `yes` / `no` / `1` / `0`.
+- Duplicate (team + track + case) rows **update** the existing record instead
+  of inserting a new one, so a corrected spreadsheet can be re-uploaded safely.
 - Invalid rows are reported in a preview table and **never saved** — the
   administrator sees exactly what was skipped and why before confirming.
-- Duplicate team names within the uploaded file are also flagged; the first
-  occurrence counts, the rest are skipped so unintended overwrites don't
-  silently clobber a correct row.
+- Duplicate (team + track + case) tuples within the uploaded file are also
+  flagged; the first occurrence counts, the rest are skipped so unintended
+  overwrites don't silently clobber a correct row.
 
 The public leaderboard updates **automatically** on commit via Supabase's
 Postgres change feed. There's no code change required to publish results.
@@ -271,24 +281,40 @@ Postgres change feed. There's no code change required to publish results.
 
 ## Deployment
 
-Any static host works for the frontend (Netlify, Vercel, Cloudflare Pages,
-GitHub Pages, S3 + CloudFront).
+### Vercel (recommended)
 
-1. Set the two `VITE_SUPABASE_*` env vars in the host's dashboard.
-2. Build command: `npm run build`.
-3. Output directory: `dist/`.
-4. Add a SPA rewrite so React Router can handle deep links. For Vercel create
-   `vercel.json`:
+A ready-to-use [`vercel.json`](./vercel.json) ships in the repo — it sets
+the Vite framework preset, SPA rewrites so React Router handles deep links,
+long-lived immutable caching for `/assets/*`, and sensible security headers
+(`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+`Permissions-Policy`).
 
-   ```json
-   { "rewrites": [{ "source": "/(.*)", "destination": "/" }] }
-   ```
-
-   For Netlify use `public/_redirects`:
+1. Push this repo to GitHub.
+2. On <https://vercel.com> → **Add New → Project** → import the repo.
+3. Framework preset auto-detects as **Vite**. Leave the build/output as-is.
+4. Under **Environment Variables**, add for **Production** *and* **Preview**:
 
    ```
-   /*    /index.html   200
+   VITE_SUPABASE_URL        = https://<ref>.supabase.co
+   VITE_SUPABASE_ANON_KEY   = <anon-public-key>
+   VITE_SHOW_DEMO_BANNER    = false      # optional
    ```
+
+5. Click **Deploy**. Every push to `main` ships to production; every PR gets
+   a preview URL.
+6. In the Supabase dashboard → **Authentication → URL configuration**, add
+   your Vercel domain (and any preview domains) to **Site URL** / **Redirect
+   URLs** so auth callbacks succeed.
+
+### Other static hosts
+
+Any static host works for the frontend (Netlify, Cloudflare Pages, GitHub
+Pages, S3 + CloudFront). Build with `npm run build`, serve `dist/`, and add
+a SPA fallback. For Netlify use `public/_redirects`:
+
+```
+/*    /index.html   200
+```
 
 Supabase is already managed; no server to run.
 

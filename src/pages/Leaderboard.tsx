@@ -1,58 +1,35 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  AlertTriangle,
-  ArrowDown,
-  ArrowUp,
-  Clock,
-  Crown,
-  Loader2,
-  Medal,
-  Trophy,
-  X,
-} from 'lucide-react'
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import type { LeaderboardEntry, Track } from '../lib/types'
+import type { LeaderboardEntry } from '../lib/types'
 import { TRACK_LABEL } from '../lib/cases'
-import { useCountUp } from '../lib/hooks'
-
-type Filter = 'all' | Track
-type SortKey = 'rank' | 'team' | 'division' | 'score' | 'time' | 'status'
-type SortDir = 'asc' | 'desc'
-
-const SHOW_DEMO_BANNER =
-  (import.meta.env.VITE_SHOW_DEMO_BANNER ?? 'true').toLowerCase() !== 'false'
 
 export function Leaderboard() {
-  const [rows, setRows] = useState<LeaderboardEntry[] | null>(null)
-  const [filter, setFilter] = useState<Filter>('all')
-  const [error, setError] = useState<string | null>(null)
-  const [bannerDismissed, setBannerDismissed] = useState(false)
-
-  // Column sort — the backend returns rows pre-sorted by rank; this adds a
-  // client-side override when the user clicks a column header.
-  const [sortKey, setSortKey] = useState<SortKey>('rank')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [rows, setRows] = useState<LeaderboardEntry[]>([])
 
   const load = async () => {
     if (!isSupabaseConfigured) {
-      setRows(SAMPLE_DEMO)
-      setError('Backend not configured — showing locally-defined demo data.')
-      return
-    }
-    const { data, error } = await supabase
-      .from('leaderboard_public')
-      .select('*')
-      .order('score', { ascending: false })
-      .order('completion_time', { ascending: true, nullsFirst: false })
-      .order('updated_at', { ascending: true })
-    if (error) {
-      setError(error.message)
       setRows([])
       return
     }
-    setError(null)
-    setRows(data as LeaderboardEntry[])
+
+    try {
+      const { data, error } = await supabase
+        .from('leaderboard_public')
+        .select('*')
+        .order('cases_solved', { ascending: false })
+        .order('score', { ascending: false })
+        .order('completion_time', { ascending: true, nullsFirst: false })
+        .order('updated_at', { ascending: true })
+        .order('team_name', { ascending: true })
+
+      if (error || !data) {
+        setRows([])
+        return
+      }
+      setRows(data as LeaderboardEntry[])
+    } catch {
+      setRows([])
+    }
   }
 
   useEffect(() => {
@@ -69,387 +46,593 @@ export function Leaderboard() {
     return () => {
       supabase.removeChannel(ch)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const filtered = useMemo(() => {
-    if (!rows) return null
-    if (filter === 'all') return rows
-    return rows.filter((r) => r.track === filter)
-  }, [rows, filter])
-
-  // Decorated rows: assign the "official" rank (backend-ordered) BEFORE
-  // applying any client sort, so clicking column headers doesn't change the
-  // numeric rank each team gets credited with.
-  const decorated = useMemo(() => {
-    if (!filtered) return null
-    return filtered.map((r, i) => ({ row: r, rank: i + 1 }))
-  }, [filtered])
-
-  const sorted = useMemo(() => {
-    if (!decorated) return null
-    const arr = [...decorated]
-    const dir = sortDir === 'asc' ? 1 : -1
-    arr.sort((a, b) => {
-      switch (sortKey) {
-        case 'rank':
-          return (a.rank - b.rank) * dir
-        case 'team':
-          return a.row.team_name.localeCompare(b.row.team_name) * dir
-        case 'division':
-          return a.row.track.localeCompare(b.row.track) * dir
-        case 'score':
-          return (a.row.score - b.row.score) * dir
-        case 'time': {
-          const at = a.row.completion_time ? +new Date(a.row.completion_time) : Infinity
-          const bt = b.row.completion_time ? +new Date(b.row.completion_time) : Infinity
-          return (at - bt) * dir
-        }
-        case 'status':
-          return (a.row.status || '').localeCompare(b.row.status || '') * dir
-      }
-    })
-    return arr
-  }, [decorated, sortKey, sortDir])
-
-  const demoOnly = useMemo(
-    () => (sorted ? sorted.length > 0 && sorted.every((d) => d.row.is_demo) : false),
-    [sorted],
-  )
-
-  const toggleSort = (k: SortKey) => {
-    if (sortKey === k) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(k)
-      setSortDir(k === 'score' ? 'desc' : 'asc')
+  // Guarantee exactly 7 row slots matching the reference image layout
+  const displayRows = useMemo(() => {
+    const totalSlots = Math.max(7, rows.length)
+    const list: (LeaderboardEntry | null)[] = []
+    for (let i = 0; i < totalSlots; i++) {
+      list.push(rows[i] || null)
     }
-  }
+    return list
+  }, [rows])
 
   return (
-    <section className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16">
-      {/* ambient grid backdrop */}
-      <div className="lb-grid-bg" aria-hidden />
+    <div className="relative min-h-screen w-full bg-[#02050f] text-white flex flex-col items-center justify-center overflow-x-hidden select-none py-4 font-sans">
+      {/* ────── BACKGROUND ARENA & ATMOSPHERIC LIGHTING ────── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Deep arena gradient */}
+        <div className="absolute inset-0 bg-radial-[circle_at_50%_35%] from-[#061432]/45 via-[#02050f] to-[#010206]" />
 
-      {/* ────── Header ────── */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="relative text-center mb-10"
-      >
-        <div className="section-title">// Real-time intelligence feed</div>
-        <h1 className="h-display text-3xl md:text-5xl mt-2 text-white glow-text flex items-center justify-center gap-3">
-          <Trophy className="text-cyber-cyan" size={34} /> Leaderboard
-        </h1>
-        <p className="text-slate-400 mt-3 max-w-xl mx-auto text-sm">
-          Scores are sorted highest-first. Ties break by earliest recorded completion time,
-          then by earliest update time. Click any column header to re-sort.
-        </p>
-      </motion.div>
+        {/* Vertical bokeh light pillars matching reference */}
+        {/* Left gold pillar behind Medal 1 */}
+        <div className="absolute left-[6%] top-0 bottom-0 w-48 bg-gradient-to-b from-amber-500/22 via-amber-500/8 to-amber-500/25 blur-3xl" />
+        {/* Center blue/cyan background beams */}
+        <div className="absolute left-[26%] top-0 bottom-0 w-24 bg-gradient-to-b from-cyan-500/18 via-blue-500/5 to-transparent blur-2xl" />
+        <div className="absolute right-[28%] top-0 bottom-0 w-24 bg-gradient-to-b from-cyan-500/18 via-blue-500/5 to-transparent blur-2xl" />
+        {/* Right copper/orange pillar behind Medal 3 */}
+        <div className="absolute right-[4%] top-0 bottom-0 w-48 bg-gradient-to-b from-orange-500/22 via-orange-500/8 to-orange-500/25 blur-3xl" />
 
-      {/* ────── Demo banner ────── */}
-      <AnimatePresence>
-        {SHOW_DEMO_BANNER && demoOnly && !bannerDismissed && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-            transition={{ duration: 0.4 }}
-            className="relative mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 text-amber-400 px-4 py-3 text-xs flex items-start gap-2 overflow-hidden"
-          >
-            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-            <p className="flex-1">
-              <span className="font-display tracking-widest uppercase font-semibold">
-                Demo data —
-              </span>{' '}
-              these are placeholder teams so the layout looks complete. They are clearly marked
-              and will be replaced the moment coordinators upload real competition results.
-            </p>
-            <button
-              onClick={() => setBannerDismissed(true)}
-              className="shrink-0 text-amber-400 hover:text-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 rounded"
-              aria-label="Dismiss"
-            >
-              <X size={14} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Ambient cyber particle / circuit grid texture */}
+        <div
+          className="absolute inset-0 opacity-[0.16]"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(0, 240, 255, 0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, 0.12) 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+            maskImage: 'radial-gradient(ellipse at 50% 45%, black 45%, transparent 85%)',
+          }}
+        />
 
-      {/* ────── Filters + count ────── */}
-      <div className="relative flex flex-wrap items-center justify-between gap-3 mb-5">
-        <div className="flex gap-2 flex-wrap">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-4 py-2 rounded-md font-display tracking-widest uppercase text-[0.65rem]
-                          transition-all border focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan/60
-                          ${
-                            filter === f.value
-                              ? 'bg-cyber-cyan/15 text-white border-cyber-cyan shadow-[0_0_14px_rgba(34,211,238,0.3)]'
-                              : 'bg-white/[0.02] text-slate-400 border-cyber-cyan/40 hover:border-cyber-cyan hover:text-white'
-                          }`}
-              aria-pressed={filter === f.value}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Ambient top dark vignette */}
+        <div className="absolute top-0 inset-x-0 h-32 bg-gradient-to-b from-black/95 to-transparent" />
+      </div>
+
+      {/* ────── MAIN STAGE CONTENT (1600x900 PROPORTIONS) ────── */}
+      <div className="relative w-full max-w-[1440px] mx-auto px-4 z-10 flex flex-col items-center">
+        {/* ── SUSPENDED MEDALS (EXACT REFERENCE POSITIONING) ── */}
+
+        {/* Medal #1: Gold (Upper Left, aligned with Header/Table top) */}
+        <div className="hidden lg:block absolute left-4 xl:left-8 top-0 z-30 pointer-events-none">
+          <OrbitalMedal
+            rank={1}
+            tier="gold"
+            number="1"
+            orbitAngle={-28}
+            ribbonLength={90}
+          />
         </div>
-        {rows && (
-          <span className="px-3 py-1.5 rounded-md border border-cyber-cyan/60 text-cyber-cyan font-display tracking-widest uppercase text-[0.65rem]">
-            {sorted?.length ?? 0} / {rows.length} teams
-          </span>
-        )}
-      </div>
 
-      {/* ────── Table / states ────── */}
-      <div className="relative rounded-xl border border-cyber-cyan/20 bg-black/40 backdrop-blur-sm overflow-hidden">
-        <HudCorners />
+        {/* Medal #2: Silver (Upper Right, placed higher above table corner) */}
+        <div className="hidden lg:block absolute right-[80px] xl:right-[110px] -top-6 z-30 pointer-events-none">
+          <OrbitalMedal
+            rank={2}
+            tier="silver"
+            number="2"
+            orbitAngle={-24}
+            ribbonLength={75}
+          />
+        </div>
 
-        {!sorted ? (
-          <div className="p-10 text-center text-slate-400 flex items-center justify-center gap-2">
-            <Loader2 size={16} className="animate-spin" /> Decrypting intel…
+        {/* Medal #3: Bronze (Far Right, lower beside rows 2-5) */}
+        <div className="hidden lg:block absolute right-2 xl:right-6 top-[220px] z-30 pointer-events-none">
+          <OrbitalMedal
+            rank={3}
+            tier="bronze"
+            number="3"
+            orbitAngle={26}
+            ribbonLength={85}
+          />
+        </div>
+
+        {/* ── TOP HEADER: CYBER HUD BANNER WITH TROPHY ── */}
+        <div className="relative w-full max-w-[700px] flex flex-col items-center mb-3">
+          {/* Top Notch Peak with Trophy Cup */}
+          <div className="relative flex items-center justify-center gap-3 mb-1">
+            {/* Left Bracket Line with Dot & Tick */}
+            <div className="flex items-center gap-1.5">
+              <div className="w-24 h-[2px] bg-gradient-to-r from-transparent via-cyan-400/50 to-[#00f0ff]" />
+              <div className="w-2.5 h-[2px] bg-[#00f0ff]" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] shadow-[0_0_8px_#00f0ff]" />
+            </div>
+
+            {/* Glowing Trophy Cup Icon with Embossed Star */}
+            <div className="relative drop-shadow-[0_0_20px_rgba(0,240,255,0.95)]">
+              <svg width="44" height="42" viewBox="0 0 44 42" fill="none">
+                {/* Trophy Handles */}
+                <path
+                  d="M10 9H6C4.8 9 3.8 10 3.8 11.2V15C3.8 19.8 7.6 23.6 12.4 23.6H13.2M34 9H38C39.2 9 40.2 10 40.2 11.2V15C40.2 19.8 36.4 23.6 31.6 23.6H30.8"
+                  stroke="#38bdf8"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                />
+                {/* Trophy Body */}
+                <path
+                  d="M11.5 7H32.5V19C32.5 24.8 27.8 29.5 22 29.5C16.2 29.5 11.5 24.8 11.5 19V7Z"
+                  stroke="#38bdf8"
+                  strokeWidth="2.5"
+                  fill="rgba(3, 16, 38, 0.95)"
+                />
+                {/* Star on Trophy */}
+                <polygon
+                  points="22,11.5 23.9,15.5 28.2,16.1 25.1,19.1 25.8,23.3 22,21.3 18.2,23.3 18.9,19.1 15.8,16.1 20.1,15.5"
+                  fill="#ffffff"
+                  stroke="#38bdf8"
+                  strokeWidth="0.6"
+                />
+                {/* Trophy Base */}
+                <path d="M22 29.5V34.5" stroke="#38bdf8" strokeWidth="2.8" />
+                <path d="M14 36.5H30" stroke="#38bdf8" strokeWidth="3.2" strokeLinecap="round" />
+              </svg>
+            </div>
+
+            {/* Right Bracket Line with Dot & Tick */}
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] shadow-[0_0_8px_#00f0ff]" />
+              <div className="w-2.5 h-[2px] bg-[#00f0ff]" />
+              <div className="w-24 h-[2px] bg-gradient-to-l from-transparent via-cyan-400/50 to-[#00f0ff]" />
+            </div>
           </div>
-        ) : error && sorted.length === 0 ? (
-          <div className="p-10 text-center text-cyber-danger text-sm">
-            <AlertTriangle className="mx-auto mb-2" />
-            {error}
+
+          {/* Stepped Cyber Banner Housing "LEADERBOARD" */}
+          <div
+            className="relative w-full py-2.5 px-10 text-center flex items-center justify-center"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(6, 24, 56, 0.96) 0%, rgba(2, 9, 22, 0.98) 100%)',
+              clipPath:
+                'polygon(7% 0%, 93% 0%, 100% 32%, 95% 100%, 5% 100%, 0% 32%)',
+              border: '2px solid rgba(56, 189, 248, 0.95)',
+              boxShadow:
+                '0 0 32px rgba(0, 240, 255, 0.6), inset 0 0 25px rgba(0, 240, 255, 0.28)',
+            }}
+          >
+            {/* Inner Cyber Glow Rim */}
+            <div
+              className="absolute inset-1 pointer-events-none"
+              style={{
+                border: '1px solid rgba(56, 189, 248, 0.45)',
+                clipPath:
+                  'polygon(7% 0%, 93% 0%, 99% 32%, 94% 98%, 6% 98%, 1% 32%)',
+              }}
+            />
+
+            {/* All-Caps Glowing Title (Orbitron Font) */}
+            <h1
+              className="font-display font-black text-3xl sm:text-4xl md:text-[44px] tracking-[0.16em] uppercase relative z-10"
+              style={{
+                fontFamily: "'Orbitron', sans-serif",
+                color: '#ffffff',
+                textShadow:
+                  '0 0 10px rgba(255, 255, 255, 0.9), 0 0 22px rgba(56, 189, 248, 0.95), 0 0 45px rgba(0, 240, 255, 0.8)',
+              }}
+            >
+              LEADERBOARD
+            </h1>
           </div>
-        ) : sorted.length === 0 ? (
-          <div className="p-10 text-center text-slate-400">
-            No results on record yet. The feed is live — scores will appear here the moment
-            coordinators upload them.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[0.6rem] tracking-[0.3em] uppercase text-slate-400 border-b border-cyber-cyan/15">
-                  <Th label="Rank"       k="rank"     sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} className="w-16 pl-5" />
-                  <Th label="Team"       k="team"     sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                  <Th label="Division"   k="division" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                  <Th label="Status"     k="status"   sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                  <Th label="Completion" k="time"     sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
-                  <Th label="Score"      k="score"    sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} align="right" className="pr-5" />
-                </tr>
-              </thead>
-              <LayoutGroup>
-                <motion.tbody layout>
-                  {sorted.map(({ row: r, rank }, i) => (
-                    <motion.tr
-                      key={r.id}
-                      layout
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{
-                        layout: { duration: 0.5, ease: [0.2, 0.65, 0.2, 1] },
-                        opacity: { delay: Math.min(i * 0.02, 0.5), duration: 0.35 },
-                        x: { delay: Math.min(i * 0.02, 0.5), duration: 0.35 },
-                      }}
-                      className={`border-b border-white/[0.04] hover:bg-cyber-cyan/[0.05] transition-colors
-                                 ${rank <= 3 ? 'bg-gradient-to-r from-cyber-cyan/[0.05] to-transparent' : ''}`}
-                    >
-                      <td className="py-3.5 pl-5 pr-3">
-                        <RankBadge rank={rank} />
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-display font-medium text-white">
-                            {r.team_name}
-                          </span>
-                          {r.is_demo ? (
-                            <span className="chip chip-amber">Demo</span>
+
+          {/* Horizontal Accent Line under Banner with Center Glow */}
+          <div className="w-[85%] h-[2px] bg-gradient-to-r from-transparent via-cyan-400/90 to-transparent mt-2 shadow-[0_0_12px_#00f0ff]" />
+        </div>
+
+        {/* ── MAIN CONSOLE TABLE: SCI-FI HUD FRAME ── */}
+        <div className="relative w-full max-w-[1020px]">
+          {/* Cyber HUD Table Box */}
+          <div
+            className="relative w-full rounded-2xl border-2 border-[#00d4ff]/85 bg-[#030919]/92 backdrop-blur-xl shadow-[0_0_35px_rgba(0,212,255,0.28),inset_0_0_30px_rgba(0,212,255,0.06)] overflow-hidden"
+            style={{
+              clipPath:
+                'polygon(0 14px, 14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px))',
+            }}
+          >
+            {/* Tech Corner Markings (// 01 and 02 //) */}
+            <div className="absolute top-1.5 left-3 text-[#38bdf8]/75 text-[9px] font-mono tracking-widest select-none pointer-events-none">
+              // 01
+            </div>
+            <div className="absolute top-1.5 right-3 text-[#38bdf8]/75 text-[9px] font-mono tracking-widest select-none pointer-events-none">
+              02 //
+            </div>
+
+            {/* Table Container (Fixed Column Widths Spread Across Full Table) */}
+            <div className="w-full">
+              <table className="w-full table-fixed border-collapse text-left">
+                {/* Column Headers */}
+                <thead>
+                  <tr className="border-b border-cyan-400/35 bg-cyan-950/25 text-[#38bdf8] font-mono font-bold text-[11px] sm:text-[12px] tracking-[0.12em] uppercase">
+                    <th className="py-3 px-2 w-[11%] text-center">RANK</th>
+                    <th className="py-3 px-4 w-[24%] text-center">TEAM NAME</th>
+                    <th className="py-3 px-3 w-[18%] text-center">TRACK</th>
+                    <th className="py-3 px-3 w-[16%] text-center">CASES SOLVED</th>
+                    <th className="py-3 px-3 w-[14%] text-center">SCORE</th>
+                    <th className="py-3 px-4 w-[17%] text-center">COMPLETION TIME</th>
+                  </tr>
+                </thead>
+
+                {/* Table Data Rows (7 Guaranteed Slots) */}
+                <tbody>
+                  {displayRows.map((entry, index) => {
+                    const rank = index + 1
+                    return (
+                      <tr
+                        key={entry?.id || `slot-${rank}`}
+                        className="border-b border-cyan-500/10 hover:bg-cyan-500/[0.04] transition-colors h-[46px]"
+                      >
+                        {/* 1. RANK: Hexagonal Cyber Badge */}
+                        <td className="py-2 px-2 text-center">
+                          <div className="flex justify-center">
+                            <HexRankBadge rank={rank} />
+                          </div>
+                        </td>
+
+                        {/* 2. TEAM NAME */}
+                        <td className="py-2 px-4 text-center font-display font-bold text-white text-xs sm:text-sm tracking-wide truncate">
+                          {entry?.team_name ? (
+                            <span>{entry.team_name}</span>
                           ) : (
-                            <span className="chip chip-success">Official</span>
+                            <span className="text-slate-500/70 font-mono text-sm">—</span>
                           )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-3">
-                        <span className={r.track === 'junior' ? 'chip' : 'chip chip-violet'}>
-                          {TRACK_LABEL[r.track]}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 text-slate-300 text-xs font-mono">
-                        {r.status || <span className="text-slate-600">—</span>}
-                      </td>
-                      <td className="py-3.5 px-3 text-[0.72rem] text-slate-400 font-mono whitespace-nowrap">
-                        {r.completion_time ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Clock size={10} />
-                            {formatDateTime(r.completion_time)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 pl-3 pr-5 text-right">
-                        <ScoreCell rank={rank} score={r.score} />
-                      </td>
-                    </motion.tr>
-                  ))}
-                </motion.tbody>
-              </LayoutGroup>
-            </table>
+                        </td>
+
+                        {/* 3. TRACK */}
+                        <td className="py-2 px-3 text-center font-mono text-xs text-cyan-300 truncate">
+                          {entry?.track ? (
+                            <span>{TRACK_LABEL[entry.track]}</span>
+                          ) : (
+                            <span className="text-slate-500/70 font-mono text-sm">—</span>
+                          )}
+                        </td>
+
+                        {/* 4. CASES SOLVED */}
+                        <td className="py-2 px-3 text-center font-mono font-bold text-xs text-cyan-400">
+                          {entry ? (
+                            <span>{entry.cases_solved} / 5</span>
+                          ) : (
+                            <span className="text-slate-500/70 font-mono text-sm">—</span>
+                          )}
+                        </td>
+
+                        {/* 5. SCORE */}
+                        <td className="py-2 px-3 text-center font-mono font-bold text-xs text-cyan-300">
+                          {entry ? (
+                            <span>{entry.score}</span>
+                          ) : (
+                            <span className="text-slate-500/70 font-mono text-sm">—</span>
+                          )}
+                        </td>
+
+                        {/* 6. COMPLETION TIME */}
+                        <td className="py-2 px-4 text-center font-mono text-xs text-slate-300">
+                          {entry?.completion_time ? (
+                            <span>{formatTime(entry.completion_time)}</span>
+                          ) : (
+                            <span className="text-slate-500/70 font-mono text-sm">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
+
+          {/* Under-table Bright Cyan Glow Bar */}
+          <div className="w-full h-[3px] bg-gradient-to-r from-transparent via-[#00f0ff] to-transparent shadow-[0_0_18px_#00f0ff] -mt-[1px]" />
+        </div>
+
+        {/* ── BOTTOM STAGE: PERSPECTIVE CYBER DAIS & REFLECTIONS ── */}
+        <div className="relative w-full max-w-[960px] flex flex-col items-center pointer-events-none -mt-3">
+          {/* Concentric 3D Holographic Dais Rings */}
+          <div className="relative w-[760px] h-[60px] flex items-center justify-center">
+            {/* Outer Elliptical Neon Ring */}
+            <div
+              className="absolute w-[720px] h-[32px] rounded-[50%] border-2 border-cyan-400/90 bg-cyan-400/10"
+              style={{
+                boxShadow:
+                  '0 0 28px rgba(0, 240, 255, 0.8), inset 0 0 20px rgba(0, 240, 255, 0.5)',
+              }}
+            />
+            {/* Inner Concentric Neon Ring with Segment Ticks */}
+            <div
+              className="absolute w-[560px] h-[20px] rounded-[50%] border border-cyan-300/80"
+              style={{
+                boxShadow: '0 0 16px rgba(56, 189, 248, 0.75)',
+              }}
+            />
+            {/* Center Glowing Pool */}
+            <div className="w-[420px] h-[10px] rounded-[50%] bg-cyan-400/40 blur-md" />
+          </div>
+
+          {/* Glossy Floor Vertical Light Streak Reflections */}
+          <div className="w-full flex justify-between px-16 -mt-3">
+            {/* Gold streak on left */}
+            <div className="w-40 h-14 bg-gradient-to-b from-amber-500/40 via-amber-500/15 to-transparent blur-xl" />
+            {/* Cyan streak in center */}
+            <div className="w-72 h-18 bg-gradient-to-b from-cyan-400/55 via-cyan-400/20 to-transparent blur-xl" />
+            {/* Copper/orange streak on right */}
+            <div className="w-40 h-14 bg-gradient-to-b from-orange-500/40 via-orange-500/15 to-transparent blur-xl" />
+          </div>
+        </div>
       </div>
-
-      {/* Footnote */}
-      <p className="mt-4 text-[0.7rem] text-slate-500 font-mono flex items-start gap-1.5">
-        <span className="text-cyber-cyan">◉</span>
-        <span>
-          Realtime subscription — scores update the instant a coordinator records them. Only
-          authenticated coordinators can create, edit or delete rows; this page is read-only.
-        </span>
-      </p>
-    </section>
-  )
-}
-
-/* ────────────────────── Sortable header cell ────────────────────── */
-
-function Th({
-  label,
-  k,
-  sortKey,
-  sortDir,
-  onClick,
-  align = 'left',
-  className = '',
-}: {
-  label: string
-  k: SortKey
-  sortKey: SortKey
-  sortDir: SortDir
-  onClick: (k: SortKey) => void
-  align?: 'left' | 'right'
-  className?: string
-}) {
-  const active = sortKey === k
-  return (
-    <th scope="col" className={`py-3 px-3 ${className}`}>
-      <button
-        type="button"
-        onClick={() => onClick(k)}
-        className={`inline-flex items-center gap-1.5 group transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-cyan/60 rounded
-                    ${align === 'right' ? 'ml-auto flex-row-reverse' : ''}
-                    ${active ? 'text-cyber-cyan' : 'text-slate-400 hover:text-white'}`}
-        aria-sort={
-          active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
-        }
-      >
-        <span>{label}</span>
-        <motion.span
-          initial={false}
-          animate={{ rotate: active && sortDir === 'desc' ? 180 : 0, opacity: active ? 1 : 0.3 }}
-          transition={{ duration: 0.25 }}
-          className="inline-flex"
-        >
-          {active ? (
-            sortDir === 'asc' ? (
-              <ArrowUp size={10} />
-            ) : (
-              <ArrowDown size={10} />
-            )
-          ) : (
-            <ArrowUp size={10} className="opacity-40" />
-          )}
-        </motion.span>
-      </button>
-    </th>
-  )
-}
-
-/* ────────────────────── Rank badge ────────────────────── */
-
-function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1)
-    return (
-      <span className="inline-flex items-center gap-1 text-cyber-amber font-display font-semibold">
-        <Crown size={14} /> 01
-      </span>
-    )
-  if (rank === 2)
-    return (
-      <span className="inline-flex items-center gap-1 text-slate-200 font-display font-semibold">
-        <Medal size={14} /> 02
-      </span>
-    )
-  if (rank === 3)
-    return (
-      <span className="inline-flex items-center gap-1 text-amber-700 font-display font-semibold">
-        <Medal size={14} /> 03
-      </span>
-    )
-  return (
-    <span className="text-slate-500 font-mono text-xs">
-      #{String(rank).padStart(2, '0')}
-    </span>
-  )
-}
-
-/* ────────────────────── Score cell (animated count-up) ────────────────────── */
-
-function ScoreCell({ rank, score }: { rank: number; score: number }) {
-  const n = useCountUp(score, 1200)
-  const tone =
-    rank === 1
-      ? 'text-cyber-amber glow-text'
-      : rank === 2
-      ? 'text-slate-200'
-      : rank === 3
-      ? 'text-amber-600'
-      : 'text-cyber-cyan'
-  return (
-    <span className={`font-display font-bold text-lg tabular-nums ${tone}`}>
-      {n.toLocaleString()}
-    </span>
-  )
-}
-
-/* ────────────────────── HUD corners for table frame ────────────────────── */
-
-function HudCorners() {
-  const s = 'absolute w-4 h-4 border-cyber-cyan/60'
-  return (
-    <div aria-hidden className="absolute inset-0 pointer-events-none">
-      <span className={`${s} top-1.5 left-1.5 border-t-2 border-l-2`} />
-      <span className={`${s} top-1.5 right-1.5 border-t-2 border-r-2`} />
-      <span className={`${s} bottom-1.5 left-1.5 border-b-2 border-l-2`} />
-      <span className={`${s} bottom-1.5 right-1.5 border-b-2 border-r-2`} />
     </div>
   )
 }
 
-/* ────────────────────── Helpers ────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+ * HEXAGONAL RANK BADGES (RANKS 1 TO 7+)
+ * ────────────────────────────────────────────────────────────────────────── */
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function HexRankBadge({ rank }: { rank: number }) {
+  const colors = {
+    1: {
+      stroke: '#facc15',
+      fill: 'rgba(250, 204, 21, 0.15)',
+      text: '#fde047',
+      glow: '0 0 10px rgba(250, 204, 21, 0.95)',
+    },
+    2: {
+      stroke: '#38bdf8',
+      fill: 'rgba(56, 189, 248, 0.15)',
+      text: '#7dd3fc',
+      glow: '0 0 10px rgba(56, 189, 248, 0.95)',
+    },
+    3: {
+      stroke: '#f97316',
+      fill: 'rgba(249, 115, 22, 0.15)',
+      text: '#fdba74',
+      glow: '0 0 10px rgba(249, 115, 22, 0.95)',
+    },
+  }[rank] || {
+    stroke: 'rgba(56, 189, 248, 0.45)',
+    fill: 'rgba(4, 14, 30, 0.8)',
+    text: '#94a3b8',
+    glow: '0 0 5px rgba(56, 189, 248, 0.25)',
+  }
+
+  return (
+    <div className="relative w-7 h-8 flex items-center justify-center">
+      <svg width="26" height="30" viewBox="0 0 28 32" className="absolute inset-0">
+        <polygon
+          points="14,1 26,7.5 26,24.5 14,31 2,24.5 2,7.5"
+          stroke={colors.stroke}
+          strokeWidth="1.8"
+          fill={colors.fill}
+        />
+      </svg>
+      <span
+        className="font-display font-black text-xs relative z-10"
+        style={{
+          fontFamily: "'Orbitron', sans-serif",
+          color: colors.text,
+          textShadow: colors.glow,
+        }}
+      >
+        {rank}
+      </span>
+    </div>
+  )
 }
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: 'All Teams' },
-  { value: 'junior', label: 'The Mystery Squad' },
-  { value: 'senior', label: 'The Mystery Masters' },
-]
+/* ─────────────────────────────────────────────────────────────────────────────
+ * 3D ORBITAL SUSPENDED MEDALS (GOLD, SILVER, BRONZE)
+ * ────────────────────────────────────────────────────────────────────────── */
 
-// Fallback demo data when Supabase isn't configured.
-const SAMPLE_DEMO: LeaderboardEntry[] = [
-  { id: 'd1', team_name: 'DEMO · Null Pointer',   track: 'senior', score: 487, completion_time: '2026-02-14T13:42:00Z', status: 'Case 04 cleared', is_demo: true, updated_at: '2026-02-14T13:42:00Z' },
-  { id: 'd2', team_name: 'DEMO · GhostProtocol',  track: 'senior', score: 463, completion_time: '2026-02-14T14:11:00Z', status: 'Case 02 cleared', is_demo: true, updated_at: '2026-02-14T14:11:00Z' },
-  { id: 'd3', team_name: 'DEMO · Sentinel',       track: 'junior', score: 431, completion_time: '2026-02-14T13:58:00Z', status: 'Case 05 cleared', is_demo: true, updated_at: '2026-02-14T13:58:00Z' },
-  { id: 'd4', team_name: 'DEMO · Shadow Coders',  track: 'senior', score: 414, completion_time: '2026-02-14T15:03:00Z', status: 'In progress',     is_demo: true, updated_at: '2026-02-14T15:03:00Z' },
-  { id: 'd5', team_name: 'DEMO · Byte Busters',   track: 'junior', score: 387, completion_time: '2026-02-14T15:11:00Z', status: 'In progress',     is_demo: true, updated_at: '2026-02-14T15:11:00Z' },
-  { id: 'd6', team_name: 'DEMO · Watchdogs',      track: 'junior', score: 354, completion_time: null,                   status: 'In progress',     is_demo: true, updated_at: '2026-02-14T15:30:00Z' },
-  { id: 'd7', team_name: 'DEMO · Zero Cool',      track: 'senior', score: 302, completion_time: null,                   status: 'In progress',     is_demo: true, updated_at: '2026-02-14T15:45:00Z' },
-]
+interface OrbitalMedalProps {
+  rank: 1 | 2 | 3
+  tier: 'gold' | 'silver' | 'bronze'
+  number: string
+  orbitAngle: number
+  ribbonLength: number
+}
+
+function OrbitalMedal({
+  rank,
+  tier,
+  number,
+  orbitAngle,
+  ribbonLength,
+}: OrbitalMedalProps) {
+  const meta = {
+    gold: {
+      glow: 'rgba(250, 204, 21, 0.88)',
+      rimColor: '#fbbf24',
+      sparkleColor: '#fef08a',
+      grad: ['#fffbeb', '#fef08a', '#f59e0b', '#b45309', '#78350f'],
+      numeralColor: '#78350f',
+      ribbonBorder: '#eab308',
+      size: 132,
+    },
+    silver: {
+      glow: 'rgba(56, 189, 248, 0.88)',
+      rimColor: '#38bdf8',
+      sparkleColor: '#e0f2fe',
+      grad: ['#ffffff', '#f1f5f9', '#94a3b8', '#475569', '#1e293b'],
+      numeralColor: '#1e293b',
+      ribbonBorder: '#38bdf8',
+      size: 120,
+    },
+    bronze: {
+      glow: 'rgba(249, 115, 22, 0.88)',
+      rimColor: '#f97316',
+      sparkleColor: '#ffedd5',
+      grad: ['#fff7ed', '#fed7aa', '#ea580c', '#9a3412', '#451a03'],
+      numeralColor: '#451a03',
+      ribbonBorder: '#ea580c',
+      size: 120,
+    },
+  }[tier]
+
+  return (
+    <div className="relative flex flex-col items-center select-none">
+      {/* ── Dark Hanging Ribbon with Metallic Border Piping ── */}
+      <div
+        className="w-20 -mb-4 overflow-hidden z-10 flex justify-center"
+        style={{ height: `${ribbonLength}px` }}
+      >
+        <svg viewBox="0 0 80 120" className="w-full h-full drop-shadow-xl">
+          {/* Left Ribbon Strap */}
+          <polygon points="16,0 36,0 44,95 24,95" fill="#060913" />
+          <polygon points="18,0 22,0 30,95 26,95" fill={meta.ribbonBorder} />
+          {/* Right Ribbon Strap */}
+          <polygon points="44,0 64,0 56,95 36,95" fill="#060913" />
+          <polygon points="58,0 62,0 54,95 50,95" fill={meta.ribbonBorder} />
+          {/* Metallic Clasp */}
+          <polygon
+            points="22,93 58,93 40,112"
+            fill="#475569"
+            stroke="#94a3b8"
+            strokeWidth="1.6"
+          />
+          <polygon points="28,95 52,95 40,107" fill="#0f172a" />
+          <circle cx="40" cy="113" r="3" fill="#cbd5e1" />
+        </svg>
+      </div>
+
+      {/* ── Medal with 3D Swirling Orbital Rings ── */}
+      <div className="relative flex items-center justify-center">
+        {/* Swirling 3D Orbital Light Ring */}
+        <div
+          className="absolute w-[220px] h-[98px] rounded-full pointer-events-none"
+          style={{
+            border: `2.2px solid ${meta.rimColor}`,
+            boxShadow: `0 0 24px ${meta.rimColor}, inset 0 0 16px ${meta.rimColor}`,
+            transform: `rotate(${orbitAngle}deg)`,
+            opacity: 0.92,
+          }}
+        >
+          {/* Orbit Sparkles */}
+          <div
+            className="absolute top-1 left-9 w-2 h-2 rounded-full"
+            style={{
+              background: meta.sparkleColor,
+              boxShadow: `0 0 8px ${meta.sparkleColor}, 0 0 16px ${meta.rimColor}`,
+            }}
+          />
+          <div
+            className="absolute bottom-2 right-12 w-2.5 h-2.5 rounded-full"
+            style={{
+              background: meta.sparkleColor,
+              boxShadow: `0 0 10px ${meta.sparkleColor}, 0 0 20px ${meta.rimColor}`,
+            }}
+          />
+          <div
+            className="absolute top-10 right-2 w-1.5 h-1.5 rounded-full"
+            style={{
+              background: '#ffffff',
+              boxShadow: `0 0 6px #ffffff`,
+            }}
+          />
+        </div>
+
+        {/* Soft Radial Ambient Glow Aura */}
+        <div
+          className="absolute w-44 h-44 rounded-full blur-2xl pointer-events-none opacity-85"
+          style={{ background: meta.glow }}
+        />
+
+        {/* ── 3D Embossed Metallic Medallion ── */}
+        <div
+          className="relative z-10"
+          style={{ filter: `drop-shadow(0 0 26px ${meta.glow})` }}
+        >
+          <svg width={meta.size} height={meta.size} viewBox="0 0 100 100">
+            <defs>
+              <radialGradient id={`medalGrad_${rank}`} cx="32%" cy="28%" r="72%">
+                <stop offset="0%" stopColor={meta.grad[0]} />
+                <stop offset="25%" stopColor={meta.grad[1]} />
+                <stop offset="60%" stopColor={meta.grad[2]} />
+                <stop offset="85%" stopColor={meta.grad[3]} />
+                <stop offset="100%" stopColor={meta.grad[4]} />
+              </radialGradient>
+              <filter id={`embossEffect_${rank}`}>
+                <feDropShadow
+                  dx="0"
+                  dy="1.8"
+                  stdDeviation="0.6"
+                  floodColor="#ffffff"
+                  floodOpacity="0.75"
+                />
+                <feDropShadow
+                  dx="0"
+                  dy="-1.8"
+                  stdDeviation="0.6"
+                  floodColor="#000000"
+                  floodOpacity="0.7"
+                />
+              </filter>
+            </defs>
+
+            {/* Outer Beveled Metallic Rim */}
+            <circle
+              cx="50"
+              cy="50"
+              r="48"
+              fill={`url(#medalGrad_${rank})`}
+              stroke="#ffffff"
+              strokeWidth="1.2"
+              strokeOpacity="0.6"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r="44"
+              fill="none"
+              stroke="#000000"
+              strokeWidth="1.5"
+              strokeOpacity="0.4"
+              strokeDasharray="2.5,2.5"
+            />
+            <circle cx="50" cy="50" r="41" fill={`url(#medalGrad_${rank})`} />
+
+            {/* Embossed Laurel Wreath */}
+            <path
+              d="M 28 70 C 18 56, 18 36, 30 24 C 32 28, 36 32, 33 40 C 26 50, 30 62, 32 68 Z"
+              fill="#ffffff"
+              fillOpacity="0.45"
+            />
+            <path
+              d="M 72 70 C 82 56, 82 36, 70 24 C 68 28, 64 32, 67 40 C 74 50, 70 62, 68 68 Z"
+              fill="#ffffff"
+              fillOpacity="0.45"
+            />
+
+            {/* Star Above Numeral for Medals 2 and 3 */}
+            {rank !== 1 && (
+              <polygon
+                points="50,21 52.2,25.5 56.5,25.5 53,28 54.5,32.5 50,29.8 45.5,32.5 47,28 43.5,25.5 47.8,25.5"
+                fill="#ffffff"
+                fillOpacity="0.85"
+              />
+            )}
+
+            {/* Bold 3D Numeral */}
+            <text
+              x="50"
+              y={rank === 1 ? '63' : '65'}
+              textAnchor="middle"
+              fontFamily="'Orbitron', sans-serif"
+              fontWeight="900"
+              fontSize={rank === 1 ? '40' : '36'}
+              fill={meta.numeralColor}
+              filter={`url(#embossEffect_${rank})`}
+            >
+              {number}
+            </text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(iso.trim())) return iso.trim()
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const h = String(d.getUTCHours()).padStart(2, '0')
+  const m = String(d.getUTCMinutes()).padStart(2, '0')
+  const s = String(d.getUTCSeconds()).padStart(2, '0')
+  return `${h}:${m}:${s}`
+}
