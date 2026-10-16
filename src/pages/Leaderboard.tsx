@@ -19,7 +19,7 @@ export function Leaderboard() {
         .select('*')
         .order('cases_solved', { ascending: false })
         .order('score', { ascending: false })
-        .order('completion_time', { ascending: true, nullsFirst: false })
+        .order('time_taken_seconds', { ascending: true, nullsFirst: false })
         .order('updated_at', { ascending: true })
         .order('team_name', { ascending: true })
 
@@ -253,7 +253,7 @@ export function Leaderboard() {
                     <th className="py-3 px-2 sm:px-3 w-[18%] text-center">TRACK</th>
                     <th className="py-3 px-2 sm:px-3 w-[16%] text-center">CASES</th>
                     <th className="py-3 px-2 sm:px-3 w-[14%] text-center">SCORE</th>
-                    <th className="py-3 px-2 sm:px-4 w-[17%] text-center">TIME</th>
+                    <th className="py-3 px-2 sm:px-4 w-[17%] text-center">TIME TAKEN</th>
                   </tr>
                 </thead>
 
@@ -312,10 +312,19 @@ export function Leaderboard() {
                           )}
                         </td>
 
-                        {/* 6. COMPLETION TIME */}
+                        {/* 6. TIME TAKEN — elapsed from spin to submission,
+                             summed across the team's solved cases. */}
                         <td className="py-2 px-4 text-center font-mono text-xs text-slate-300">
-                          {entry?.completion_time ? (
-                            <span>{formatTime(entry.completion_time)}</span>
+                          {entry && entry.time_taken_seconds != null ? (
+                            <span
+                              title={
+                                entry.completion_time
+                                  ? `Last submitted ${formatTime(entry.completion_time)} UTC`
+                                  : undefined
+                              }
+                            >
+                              {formatElapsed(entry.time_taken_seconds)}
+                            </span>
                           ) : (
                             <span className="text-slate-500/70 font-mono text-sm">—</span>
                           )}
@@ -678,4 +687,15 @@ function formatTime(iso: string | null | undefined): string {
   const m = String(d.getUTCMinutes()).padStart(2, '0')
   const s = String(d.getUTCSeconds()).padStart(2, '0')
   return `${h}:${m}:${s}`
+}
+
+function formatElapsed(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '—'
+  const total = Math.floor(seconds)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}m`
+  if (m > 0) return `${m}m ${s.toString().padStart(2, '0')}s`
+  return `${s}s`
 }

@@ -250,34 +250,72 @@ end;
 $$;
 
 -- -----------------------------------------------------------------------------
--- 6. Public leaderboard view (aggregates solved cases, ranks by cases_solved)
+-- 6. Public leaderboard view (aggregates solved cases, ranks by cases_solved
+--    then score then time taken; see migration 0010 for the rationale).
 -- -----------------------------------------------------------------------------
 drop view if exists public.leaderboard_public;
 create view public.leaderboard_public as
+  with per_case as (
+    select
+      r.id,
+      r.team_name,
+      r.team_name_lower,
+      r.track,
+      r.case_number,
+      r.is_solved,
+      r.is_demo,
+      r.score,
+      r.completion_time,
+      r.updated_at,
+      a.assigned_at,
+      case
+        when r.is_solved
+         and r.completion_time is not null
+         and a.assigned_at is not null
+          then greatest(
+            extract(epoch from (r.completion_time - a.assigned_at))::int,
+            0
+          )
+        else null
+      end as case_elapsed_seconds
+    from public.results r
+    left join public.team_assignments a
+      on  a.team_name_lower = r.team_name_lower
+      and a.track            = r.track
+      and a.case_number      = r.case_number
+  )
   select
-    min(r.id::text)::uuid as id,
-    r.team_name,
-    r.track,
-    count(distinct r.case_number) filter (where r.is_solved = true)::int as cases_solved,
-    coalesce(sum(r.score) filter (where r.is_solved = true), 0)::int as score,
-    max(r.completion_time) filter (where r.is_solved = true) as completion_time,
+    min(p.id::text)::uuid                                                 as id,
+    p.team_name,
+    p.track,
+    count(distinct p.case_number) filter (where p.is_solved = true)::int  as cases_solved,
+    coalesce(sum(p.score) filter (where p.is_solved = true), 0)::int      as score,
+    max(p.completion_time)        filter (where p.is_solved = true)       as completion_time,
+    (
+      case
+        when count(*) filter (
+          where p.is_solved = true and p.case_elapsed_seconds is not null
+        ) = 0 then null
+        else sum(p.case_elapsed_seconds) filter (where p.is_solved = true)::int
+      end
+    )                                                                     as time_taken_seconds,
     coalesce(
       string_agg(
-        distinct 'Case ' || lpad(r.case_number::text, 2, '0'),
-        ', ' order by 'Case ' || lpad(r.case_number::text, 2, '0')
-      ) filter (where r.is_solved = true),
+        distinct 'Case ' || lpad(p.case_number::text, 2, '0'),
+        ', ' order by 'Case ' || lpad(p.case_number::text, 2, '0')
+      ) filter (where p.is_solved = true),
       'None cleared'
-    ) as status,
-    bool_or(r.is_demo) as is_demo,
-    max(r.updated_at) as updated_at
-  from public.results r
-  group by r.team_name, r.team_name_lower, r.track
+    )                                                                     as status,
+    bool_or(p.is_demo)                                                    as is_demo,
+    max(p.updated_at)                                                     as updated_at
+  from per_case p
+  group by p.team_name, p.team_name_lower, p.track
   order by
-    cases_solved desc,
-    score desc,
-    completion_time asc nulls last,
-    updated_at asc,
-    team_name asc;
+    cases_solved        desc,
+    score               desc,
+    time_taken_seconds  asc nulls last,
+    updated_at          asc,
+    team_name           asc;
 
 grant select on public.leaderboard_public to anon, authenticated;
 

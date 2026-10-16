@@ -17,6 +17,10 @@ export interface LeaderboardEntry {
   cases_solved: number
   score: number
   completion_time: string | null
+  /** Total time the team actually spent solving cases, in whole seconds.
+   *  SUM across solved cases of (completion_time − assigned_at).
+   *  NULL when none of the team's solved cases has a usable assigned_at. */
+  time_taken_seconds: number | null
   status: string | null
   is_demo: boolean
   updated_at: string

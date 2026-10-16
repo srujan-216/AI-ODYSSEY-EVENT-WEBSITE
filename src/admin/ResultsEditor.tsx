@@ -14,7 +14,9 @@ import { useToast } from '../components/Toast'
 
 const CASE_NUMBERS = Array.from({ length: CASE_COUNT }, (_, i) => i + 1)
 
-/** Case numbers permitted on each track. Junior → 1..5; Senior → 6..7. */
+/** Case numbers that match a track's declared difficulty — used as the
+ *  dropdown default in the non-quick path. Admin can still override by
+ *  picking a case from the OPPOSITE difficulty via the full dropdown. */
 function caseNumbersForTrack(track: Track): number[] {
   const want = TRACK_DIFFICULTY[track]
   return CASE_NUMBERS.filter((n) => difficultyFor(n) === want)
@@ -165,14 +167,23 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
     const caseNum = Number(editing.case_number)
     if (!Number.isInteger(caseNum) || caseNum < 1 || caseNum > CASE_COUNT)
       return toast.push(`Case must be between 1 and ${CASE_COUNT}.`, 'error')
-    if (difficultyFor(caseNum) !== TRACK_DIFFICULTY[editing.track])
-      return toast.push(
-        `Case ${labelFor(caseNum)} is not in the ${TRACK_LABEL[editing.track]} pool. Switch division or pick another case.`,
-        'error',
-      )
-    const score = Number(editing.score)
+    // Note: no client-side pool-mismatch block — admin may need to override
+    // if an old assignment used the pre-migration numbering. The DB only
+    // enforces case_number ∈ 1..8, and difficulty is stamped from the case.
+    const rawScore = editing.score.trim()
+    if (rawScore === '')
+      return toast.push('Enter a score (0 – 100000).', 'error')
+    const score = Number(rawScore)
     if (!Number.isFinite(score) || score < 0 || score > 100000)
-      return toast.push('Score must be a non-negative number.', 'error')
+      return toast.push('Score must be a number between 0 and 100000.', 'error')
+
+    let completionIso: string | null = null
+    if (editing.completion_time) {
+      const t = new Date(editing.completion_time)
+      if (Number.isNaN(t.getTime()))
+        return toast.push('Submission time is not a valid date.', 'error')
+      completionIso = t.toISOString()
+    }
 
     const payload = {
       ...(editing.id ? { id: editing.id } : {}),
@@ -181,23 +192,30 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
       case_number: caseNum,
       difficulty: difficultyFor(caseNum),
       score: Math.round(score),
-      completion_time: editing.completion_time
-        ? new Date(editing.completion_time).toISOString()
-        : null,
+      completion_time: completionIso,
       status: editing.status.trim() || null,
       is_solved: editing.is_solved,
       is_demo: false,
     }
 
     setBusy(true)
-    const { error } = await supabase.from('results').upsert(payload, {
-      onConflict: 'team_name_lower,track,case_number',
-    })
-    setBusy(false)
-    if (error) return toast.push(`Save failed: ${error.message}`, 'error')
-    toast.push(editing.id ? 'Result updated.' : 'Result added.', 'success')
-    setEditing(null)
-    onChanged()
+    try {
+      const { error } = await supabase.from('results').upsert(payload, {
+        onConflict: 'team_name_lower,track,case_number',
+      })
+      if (error) {
+        toast.push(`Save failed: ${error.message}`, 'error')
+        return
+      }
+      toast.push(editing.id ? 'Result updated.' : 'Result saved.', 'success')
+      setEditing(null)
+      onChanged()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      toast.push(`Save threw: ${msg}`, 'error')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const remove = async (r: ResultRow) => {
@@ -411,7 +429,6 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                     <label className="section-title block mb-1">Team name</label>
                     <input
                       className="cyber-input"
-                      required
                       maxLength={60}
                       value={editing.team_name}
                       onChange={(e) =>
@@ -473,9 +490,9 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                 </label>
                 <input
                   className="cyber-input text-lg font-display tabular-nums"
-                  required
                   autoFocus
                   type="number"
+                  inputMode="numeric"
                   min={0}
                   max={100000}
                   placeholder="e.g. 85"
