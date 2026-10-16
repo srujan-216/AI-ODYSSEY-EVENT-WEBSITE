@@ -1,49 +1,66 @@
 -- =============================================================================
--- Migration · 0008 — Add E6 to the easy pool
+-- Migration · 0008 — Add E6 to the easy pool (6 easy + 2 hard = 8 cases)
 --
 -- Catalog becomes:
---   case_number 1..6  → labels E1..E6 (easy)  — junior / Mystery Squad
---   case_number 7..8  → labels H1..H2 (hard)  — senior / Mystery Masters
+--   case_number 1..6 → labels E1..E6 (easy)  — junior / Mystery Squad
+--   case_number 7..8 → labels H1..H2 (hard)  — senior / Mystery Masters
 --
--- IMPORTANT ONE-TIME NOTE: before this migration, case_number 6 meant H1
--- (hard) and 7 meant H2 (hard). This migration re-maps the hard pool to
--- 7..8. Any pre-existing rows at case_number = 6 (which could only have
--- been senior/hard under the old scheme) are migrated up to 7 so the
--- H1 identity is preserved; case_number = 7 (old H2) moves up to 8.
--- If no event rows exist yet (expected for pre-launch) this is a no-op.
+-- IMPORTANT: before this migration, case_number 6 meant H1 and 7 meant H2.
+-- This migration re-maps the hard pool to 7..8 so H1 moves 6 → 7 and
+-- H2 moves 7 → 8, preserving identity. If no event rows exist yet
+-- (expected for pre-launch) this is a no-op.
+--
+-- Order of operations is important:
+--   1. Drop the old CHECK (1..7) so the shift can write values up to 8.
+--   2. Shift in TWO steps (7 → 8 first, then 6 → 7) to avoid a transient
+--      collision with the (team, track, case_number) unique index.
+--   3. Add the new CHECK (1..8).
+--   4. Reissue assign_case() with the new ranges.
 --
 -- Safe to re-run.
 -- =============================================================================
 
--- 1. Shift historical hard rows up by one (6 -> 7, 7 -> 8) BEFORE loosening
---    the CHECK, so the new rows still satisfy the old 1..7 constraint while
---    we're mid-migration. Only touches senior rows (the only place the old
---    6/7 could have come from); junior rows were constrained to 1..5 under
---    migration 0007 so they can never collide.
-update public.results
-   set case_number = case when case_number = 6 then 7 when case_number = 7 then 8 end
- where track = 'senior'
-   and case_number in (6, 7);
-
-update public.team_assignments
-   set case_number = case when case_number = 6 then 7 when case_number = 7 then 8 end
- where track = 'senior'
-   and case_number in (6, 7);
-
--- 2. Widen the CHECK constraints 1..7 → 1..8.
+-- 1. Drop the OLD CHECK constraints first — otherwise step 2's UPDATE would
+--    try to write case_number = 8 while the live constraint still says 1..7
+--    and the whole statement rolls back with
+--    "check constraint ... is violated by some row".
 alter table public.team_assignments
   drop constraint if exists team_assignments_case_number_check;
-alter table public.team_assignments
-  add  constraint team_assignments_case_number_check
-       check (case_number between 1 and 8);
 
 alter table public.results
   drop constraint if exists results_case_number_check;
-alter table public.results
-  add  constraint results_case_number_check
-       check (case_number between 1 and 8);
 
--- 3. Reissue assign_case() with the new ranges.
+-- 2. Shift historical hard rows up by one. Order matters: move 7 → 8 FIRST,
+--    then 6 → 7, so we never briefly have two rows at the same case_number
+--    for the same (team, track) and trip the unique index. Only senior rows
+--    are touched (the only place the old 6/7 could have come from); junior
+--    was constrained to 1..5 under migration 0007 and can never collide.
+update public.team_assignments
+   set case_number = 8
+ where track = 'senior' and case_number = 7;
+
+update public.results
+   set case_number = 8
+ where track = 'senior' and case_number = 7;
+
+update public.team_assignments
+   set case_number = 7
+ where track = 'senior' and case_number = 6;
+
+update public.results
+   set case_number = 7
+ where track = 'senior' and case_number = 6;
+
+-- 3. Add the NEW CHECK constraints (1..8). Safe now that step 2 is done.
+alter table public.team_assignments
+  add constraint team_assignments_case_number_check
+      check (case_number between 1 and 8);
+
+alter table public.results
+  add constraint results_case_number_check
+      check (case_number between 1 and 8);
+
+-- 4. Reissue assign_case() with the new ranges.
 drop function if exists public.assign_case(text, text, int);
 drop function if exists public.assign_case(text, text, int, text);
 
@@ -157,7 +174,7 @@ $$;
 
 grant execute on function public.assign_case(text, text, int, text) to anon, authenticated;
 
--- 4. Normalise difficulty on any row that still carries the old boundary.
+-- 5. Normalise difficulty on any row that still carries the old boundary.
 update public.team_assignments
    set difficulty = case when case_number between 7 and 8 then 'hard' else 'easy' end
  where difficulty is null
