@@ -3,22 +3,25 @@ import type { Track } from './types'
 /**
  * Case catalog.
  *
- * Seven case briefs total, shared across both tracks (Junior and Senior open
- * the same PDF per case number). Split into two difficulty buckets:
- *   • 5 EASY  — participant spins the wheel. case_number 1..5 → label e1..e5.
- *   • 2 HARD  — participant tosses the coin. case_number 6..7 → label h1..h2.
+ * Seven case briefs total. The two tracks are dedicated to their own pool:
+ *   • Junior  ("The Mystery Squad")   → 5 EASY cases, assigned by the wheel.
+ *                                       case_number 1..5, labels E1..E5.
+ *   • Senior  ("The Mystery Masters") → 2 HARD cases, assigned by the coin.
+ *                                       case_number 6..7, labels H1..H2.
  *
- * The number ↔ label mapping is the single source of truth, mirrored on the
- * server inside `assign_case()` (supabase/migrations/0006_*.sql). If a label
- * moves, update both or the DB-stamped difficulty will drift from the UI.
+ * Juniors never see hard cases; seniors never see easy cases. If that split
+ * ever changes, update CATALOG, src/pages/Dashboard.tsx (mechanismForTrack),
+ * and the server inside `assign_case()` (migration 0007) together — the
+ * server infers difficulty from the track, so drift here means refused spins.
  *
  * PDFs live at `/cases/<label>.pdf` (e.g. `/cases/e1.pdf`, `/cases/h2.pdf`).
  */
 export type Difficulty = 'easy' | 'hard'
+export type Mechanism = 'wheel' | 'coin'
 
 export interface CaseConfig {
   number: number
-  /** Human-visible label: e1..e5 for easy, h1..h2 for hard. */
+  /** Human-visible label: E1..E5 for easy, H1..H2 for hard. */
   label: string
   title: string
   pdfPath: string
@@ -52,6 +55,20 @@ export function titleFor(caseNumber: number): string {
   return CATALOG[caseNumber]?.title ?? `Case ${caseNumber}`
 }
 
+/** Each track is bound to one difficulty pool and one mechanism. */
+export const TRACK_DIFFICULTY: Record<Track, Difficulty> = {
+  junior: 'easy',
+  senior: 'hard',
+}
+export const TRACK_MECHANISM: Record<Track, Mechanism> = {
+  junior: 'wheel',
+  senior: 'coin',
+}
+export const TRACK_POOL_SIZE: Record<Track, number> = {
+  junior: EASY_COUNT,
+  senior: HARD_COUNT,
+}
+
 function buildCase(n: number): CaseConfig {
   const meta = CATALOG[n]
   const label = meta?.label ?? String(n)
@@ -65,23 +82,22 @@ function buildCase(n: number): CaseConfig {
   }
 }
 
-/** All 7 cases, in order (both tracks share). */
-export function getCases(_track: Track): CaseConfig[] {
+/** Cases visible to a given track. Junior → 5 easy; Senior → 2 hard. */
+export function getCases(track: Track): CaseConfig[] {
+  const diff = TRACK_DIFFICULTY[track]
+  return Array.from({ length: CASE_COUNT }, (_, i) => buildCase(i + 1)).filter(
+    (c) => c.difficulty === diff,
+  )
+}
+
+/** The full catalog — used by admin tooling that must see every case. */
+export function getAllCases(): CaseConfig[] {
   return Array.from({ length: CASE_COUNT }, (_, i) => buildCase(i + 1))
 }
 
-/** Just the easy pool — fed into the wheel. */
-export function getEasyCases(track: Track): CaseConfig[] {
-  return getCases(track).filter((c) => c.difficulty === 'easy')
-}
-
-/** Just the hard pool — fed into the coin toss. */
-export function getHardCases(track: Track): CaseConfig[] {
-  return getCases(track).filter((c) => c.difficulty === 'hard')
-}
-
-export function getCase(track: Track, n: number): CaseConfig | undefined {
-  return getCases(track).find((c) => c.number === n)
+export function getCase(_track: Track, n: number): CaseConfig | undefined {
+  // Admin may look up any case regardless of track, so search the full catalog.
+  return getAllCases().find((c) => c.number === n)
 }
 
 export const TRACK_LABEL: Record<Track, string> = {
@@ -91,7 +107,7 @@ export const TRACK_LABEL: Record<Track, string> = {
 
 export const TRACK_DESCRIPTION: Record<Track, string> = {
   junior:
-    'For 1st and 2nd-year investigators. Five easy cases on the wheel, two hard cases behind the coin.',
+    'For 1st and 2nd-year investigators. Five easy cases, dealt by the spin wheel. One case active at a time — hand the report in before spinning again.',
   senior:
-    'For 3rd and 4th-year investigators. Five easy cases on the wheel, two hard cases behind the coin.',
+    'For 3rd and 4th-year investigators. Two hard cases, dealt by the coin toss. One case active at a time — hand the report in before tossing again.',
 }

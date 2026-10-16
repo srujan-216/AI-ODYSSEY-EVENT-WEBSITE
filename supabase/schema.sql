@@ -74,7 +74,7 @@ create or replace function public.assign_case(
   p_team_name   text,
   p_track       text,
   p_case_number int  default null,
-  p_difficulty  text default null
+  p_difficulty  text default null  -- kept for RPC backwards compat; ignored
 )
 returns public.team_assignments
 language plpgsql
@@ -90,6 +90,8 @@ declare
   v_lo    int;
   v_hi    int;
 begin
+  perform p_difficulty;  -- silence unused-parameter warning
+
   if v_name is null or char_length(v_name) < 2 or char_length(v_name) > 60 then
     raise exception 'Team name must be 2-60 characters';
   end if;
@@ -99,8 +101,12 @@ begin
   if p_case_number is not null and (p_case_number < 1 or p_case_number > 7) then
     raise exception 'Requested case_number must be between 1 and 7';
   end if;
-  if p_difficulty is not null and p_difficulty not in ('easy','hard') then
-    raise exception 'p_difficulty must be easy, hard, or null';
+
+  -- Each track has one pool. Junior = 1..5 (easy); Senior = 6..7 (hard).
+  if p_track = 'junior' then
+    v_lo := 1; v_hi := 5; v_diff := 'easy';
+  else
+    v_lo := 6; v_hi := 7; v_diff := 'hard';
   end if;
 
   perform pg_advisory_xact_lock(hashtext(lower(v_name) || ':' || p_track));
@@ -115,6 +121,11 @@ begin
       )
     ) then
       raise exception 'Only event coordinators and administrators can assign a specific case number. Participants must spin the wheel or toss the coin.';
+    end if;
+
+    if p_case_number < v_lo or p_case_number > v_hi then
+      raise exception 'Case % is not in the % track''s pool (allowed range: %..%)',
+        p_case_number, p_track, v_lo, v_hi;
     end if;
 
     select * into v_row
@@ -143,15 +154,6 @@ begin
       raise exception 'Team "%" already has an active case on the % track. Submit the report before dealing another.', v_name, p_track;
     end if;
 
-    -- 5 easy (1..5) + 2 hard (6..7). Mirrors src/lib/cases.ts.
-    if p_difficulty = 'easy' then
-      v_lo := 1; v_hi := 5;
-    elsif p_difficulty = 'hard' then
-      v_lo := 6; v_hi := 7;
-    else
-      v_lo := 1; v_hi := 7;
-    end if;
-
     select c into v_pick
     from (
       select generate_series(v_lo, v_hi) as c
@@ -167,13 +169,9 @@ begin
 
     if v_pick is null then
       raise exception 'All % cases on the % track are already assigned to team "%"',
-        case when p_difficulty is null then 7 else (v_hi - v_lo + 1) end,
-        p_track,
-        v_name;
+        (v_hi - v_lo + 1), p_track, v_name;
     end if;
   end if;
-
-  v_diff := case when v_pick between 6 and 7 then 'hard' else 'easy' end;
 
   insert into public.team_assignments (team_name, track, case_number, difficulty)
   values (v_name, p_track, v_pick, v_diff)

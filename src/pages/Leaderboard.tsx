@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { LeaderboardEntry } from '../lib/types'
-import { TRACK_LABEL } from '../lib/cases'
+import { TRACK_LABEL, TRACK_POOL_SIZE } from '../lib/cases'
 
 export function Leaderboard() {
   const [rows, setRows] = useState<LeaderboardEntry[]>([])
@@ -285,10 +285,13 @@ export function Leaderboard() {
                           )}
                         </td>
 
-                        {/* 4. CASES SOLVED */}
+                        {/* 4. CASES SOLVED — denominator is the team's own
+                             pool size (junior: 5 easy, senior: 2 hard). */}
                         <td className="py-2 px-3 text-center font-mono font-bold text-xs text-cyan-400">
                           {entry ? (
-                            <span>{entry.cases_solved} / 7</span>
+                            <span>
+                              {entry.cases_solved} / {TRACK_POOL_SIZE[entry.track]}
+                            </span>
                           ) : (
                             <span className="text-slate-500/70 font-mono text-sm">—</span>
                           )}

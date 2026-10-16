@@ -44,12 +44,13 @@ export function Tracks() {
             unit="Unit · 01"
             name="The Mystery Squad"
             years="1st & 2nd Year"
-            cases={7}
+            cases={5}
             easy={5}
-            hard={2}
+            hard={0}
+            mechanism="spin wheel"
             tone="cyan"
             tagline="Entry grade"
-            desc="Clean reasoning. Well-defined evidence. Surprises you can work with."
+            desc="Five easy cases, dealt by the spin wheel. Clean reasoning, well-defined evidence."
             stamp="Open"
             rotate="sm:-rotate-2"
           />
@@ -58,12 +59,13 @@ export function Tracks() {
             unit="Unit · 02"
             name="The Mystery Masters"
             years="3rd & 4th Year"
-            cases={7}
-            easy={5}
+            cases={2}
+            easy={0}
             hard={2}
+            mechanism="coin toss"
             tone="red"
             tagline="Adversarial grade"
-            desc="Layered intel. Misdirection. Tighter time budgets. Harder decisions."
+            desc="Two hard cases, dealt by the coin toss. Layered intel, misdirection, higher stakes."
             stamp="Hot"
             rotate="sm:rotate-2"
           />
@@ -81,6 +83,7 @@ interface Props {
   cases: number
   easy: number
   hard: number
+  mechanism: string
   tone: 'cyan' | 'red'
   tagline: string
   desc: string
@@ -96,6 +99,7 @@ function CaseFolder({
   cases,
   easy,
   hard,
+  mechanism,
   tone,
   tagline,
   desc,
@@ -151,16 +155,23 @@ function CaseFolder({
           {desc}
         </p>
 
-        {/* Difficulty mix */}
+        {/* Pool + mechanism */}
         <div className="mt-5 flex items-center gap-2 flex-wrap">
           <span className="font-mono text-[0.55rem] tracking-widest uppercase text-stone-600">
-            Mix
+            Pool
           </span>
-          <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-emerald-800/50 text-emerald-800 bg-emerald-700/5">
-            {easy} Easy
-          </span>
-          <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-red-700/60 text-red-700 bg-red-700/5">
-            {hard} Hard
+          {easy > 0 && (
+            <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-emerald-800/50 text-emerald-800 bg-emerald-700/5">
+              {easy} Easy
+            </span>
+          )}
+          {hard > 0 && (
+            <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-red-700/60 text-red-700 bg-red-700/5">
+              {hard} Hard
+            </span>
+          )}
+          <span className="font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border border-stone-700/60 text-stone-800 bg-stone-200/40">
+            {mechanism}
           </span>
         </div>
 

@@ -7,12 +7,13 @@ export const REQUIRED_COLUMNS = ['team_name', 'track', 'case_number', 'score'] a
 export const OPTIONAL_COLUMNS = ['completion_time', 'status', 'is_solved'] as const
 export const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS] as const
 
+// Junior rows use case_number 1..5 (easy); senior rows use 6..7 (hard).
 export const SAMPLE_CSV = `team_name,track,case_number,score,completion_time,status,is_solved
-Null Pointer,senior,1,100,2026-10-16T13:42:00Z,Cleared,true
-Null Pointer,senior,6,95,2026-10-16T14:15:00Z,Cleared,true
-GhostProtocol,senior,2,90,2026-10-16T14:11:00Z,Cleared,true
-Sentinel,junior,7,100,2026-10-16T13:58:00Z,Cleared,true
-Watchdogs,junior,3,0,,In progress,false
+Null Pointer,senior,6,100,2026-10-16T13:42:00Z,Cleared,true
+Null Pointer,senior,7,95,2026-10-16T14:15:00Z,Cleared,true
+GhostProtocol,senior,6,90,2026-10-16T14:11:00Z,Cleared,true
+Sentinel,junior,3,100,2026-10-16T13:58:00Z,Cleared,true
+Watchdogs,junior,1,0,,In progress,false
 `
 
 interface ParseResult {
@@ -69,6 +70,10 @@ export function parseCsv(text: string, existing: { team_name: string; track: Tra
     const caseNum = Number(caseRaw)
     if (!caseRaw || !Number.isInteger(caseNum) || caseNum < 1 || caseNum > 7) {
       row.errors.push('case_number must be an integer between 1 and 7 (1-5 easy, 6-7 hard)')
+    } else if (track === 'junior' && caseNum > 5) {
+      row.errors.push('junior teams only run case_number 1..5 (easy pool)')
+    } else if (track === 'senior' && caseNum < 6) {
+      row.errors.push('senior teams only run case_number 6..7 (hard pool)')
     }
 
     const score = Number(scoreRaw)

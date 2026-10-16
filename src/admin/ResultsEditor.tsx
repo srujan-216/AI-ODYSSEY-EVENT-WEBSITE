@@ -2,10 +2,22 @@ import { FormEvent, forwardRef, useImperativeHandle, useMemo, useState } from 'r
 import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock, Stamp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { ResultRow, Track } from '../lib/types'
-import { TRACK_LABEL, CASE_COUNT, difficultyFor, labelFor } from '../lib/cases'
+import {
+  TRACK_LABEL,
+  CASE_COUNT,
+  TRACK_DIFFICULTY,
+  difficultyFor,
+  labelFor,
+} from '../lib/cases'
 import { useToast } from '../components/Toast'
 
 const CASE_NUMBERS = Array.from({ length: CASE_COUNT }, (_, i) => i + 1)
+
+/** Case numbers permitted on each track. Junior → 1..5; Senior → 6..7. */
+function caseNumbersForTrack(track: Track): number[] {
+  const want = TRACK_DIFFICULTY[track]
+  return CASE_NUMBERS.filter((n) => difficultyFor(n) === want)
+}
 
 export interface ResultsEditorHandle {
   startWithPrefill: (prefill: {
@@ -152,6 +164,11 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
     const caseNum = Number(editing.case_number)
     if (!Number.isInteger(caseNum) || caseNum < 1 || caseNum > CASE_COUNT)
       return toast.push(`Case must be between 1 and ${CASE_COUNT}.`, 'error')
+    if (difficultyFor(caseNum) !== TRACK_DIFFICULTY[editing.track])
+      return toast.push(
+        `Case ${labelFor(caseNum)} is not in the ${TRACK_LABEL[editing.track]} pool. Switch division or pick another case.`,
+        'error',
+      )
     const score = Number(editing.score)
     if (!Number.isFinite(score) || score < 0 || score > 100000)
       return toast.push('Score must be a non-negative number.', 'error')
@@ -401,9 +418,16 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                       <select
                         className="cyber-input"
                         value={editing.track}
-                        onChange={(e) =>
-                          setEditing({ ...editing, track: e.target.value as Track })
-                        }
+                        onChange={(e) => {
+                          const nextTrack = e.target.value as Track
+                          const allowed = caseNumbersForTrack(nextTrack)
+                          const stillOk = allowed.includes(editing.case_number)
+                          setEditing({
+                            ...editing,
+                            track: nextTrack,
+                            case_number: stillOk ? editing.case_number : allowed[0],
+                          })
+                        }}
                       >
                         <option value="junior">Junior</option>
                         <option value="senior">Senior</option>
@@ -421,7 +445,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                           })
                         }
                       >
-                        {CASE_NUMBERS.map((c) => (
+                        {caseNumbersForTrack(editing.track).map((c) => (
                           <option key={c} value={c}>
                             Case {labelFor(c)}
                           </option>

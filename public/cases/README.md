@@ -1,10 +1,15 @@
 # Case brief PDFs
 
-Seven case briefs, shared across both tracks (Junior and Senior open the
-same PDF for a given case). Split into two pools:
+Seven case briefs — one PDF per case, served verbatim by Vite from `public/`.
 
-- **Easy** — spin the wheel. 5 cases: `e1.pdf` … `e5.pdf`
-- **Hard** — toss the coin. 2 cases: `h1.pdf`, `h2.pdf`
+Each track runs its own dedicated pool:
+
+- **Junior · "The Mystery Squad"** — 5 easy cases, spin wheel.
+  `e1.pdf` … `e5.pdf`
+- **Senior · "The Mystery Masters"** — 2 hard cases, coin toss.
+  `h1.pdf`, `h2.pdf`
+
+Paths the frontend expects:
 
 ```
 public/cases/e1.pdf   -> /cases/e1.pdf
@@ -16,11 +21,14 @@ public/cases/h1.pdf
 public/cases/h2.pdf
 ```
 
-- Filenames must be lower-case (`e1.pdf` … `h2.pdf`). The frontend builds
-  the URL from `label.toLowerCase() + '.pdf'`.
-- `public/` is served verbatim by Vite — the dashboard's "Open sealed PDF"
-  button links to these paths directly.
+- Filenames must be lower-case. The frontend builds the URL from the
+  label as `label.toLowerCase() + '.pdf'`.
 - To rename, move, or point at a different URL, edit `src/lib/cases.ts` —
   the `CATALOG` map there is the single source of truth.
 
-The DB stores a numeric `case_number`: 1..5 → easy, 6..7 → hard.
+The DB stores a numeric `case_number`:
+
+- 1..5 → easy pool, junior track only
+- 6..7 → hard pool, senior track only
+
+`assign_case()` on the server enforces the track → pool boundary.

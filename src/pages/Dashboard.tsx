@@ -16,18 +16,16 @@ import {
 import { Wheel, computeTargetRotation } from '../components/Wheel'
 import { CoinToss } from '../components/CoinToss'
 import {
-  CASE_COUNT,
-  EASY_COUNT,
-  HARD_COUNT,
-  difficultyFor,
   getCase,
   getCases,
-  getEasyCases,
-  getHardCases,
+  labelFor,
   TRACK_DESCRIPTION,
+  TRACK_DIFFICULTY,
   TRACK_LABEL,
+  TRACK_MECHANISM,
+  TRACK_POOL_SIZE,
 } from '../lib/cases'
-import type { Difficulty, Track, TeamAssignment } from '../lib/types'
+import type { Track, TeamAssignment } from '../lib/types'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { useToast } from '../components/Toast'
 
@@ -41,20 +39,19 @@ export function Dashboard() {
 
 function DashboardFor({ track }: { track: Track }) {
   const cases = useMemo(() => getCases(track), [track])
-  const easyCases = useMemo(() => getEasyCases(track), [track])
-  const hardCases = useMemo(() => getHardCases(track), [track])
+  const mechanism = TRACK_MECHANISM[track]
+  const trackDifficulty = TRACK_DIFFICULTY[track]
+  const poolSize = TRACK_POOL_SIZE[track]
   const toast = useToast()
 
   const [teamName, setTeamName] = useState('')
-  const [mode, setMode] = useState<Difficulty>('easy')
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [assignment, setAssignment] = useState<TeamAssignment | null>(null)
   const [assignments, setAssignments] = useState<TeamAssignment[]>([])
   const [solvedCases, setSolvedCases] = useState<Set<number>>(new Set())
   const [lookupBusy, setLookupBusy] = useState(false)
-  const [wheelLanded, setWheelLanded] = useState<number | null>(null)
-  const [coinLanded, setCoinLanded] = useState<number | null>(null)
+  const [landedIndex, setLandedIndex] = useState<number | null>(null)
   const [isDemoAssignment, setIsDemoAssignment] = useState(false)
 
   const activeAssignments = useMemo(
@@ -63,10 +60,6 @@ function DashboardFor({ track }: { track: Track }) {
   )
   const hasActiveCase = activeAssignments.length > 0
   const allCasesDealt = assignments.length >= cases.length
-  const easyExhausted =
-    assignments.filter((a) => a.case_number >= 1 && a.case_number <= EASY_COUNT).length >= EASY_COUNT
-  const hardExhausted =
-    assignments.filter((a) => a.case_number > EASY_COUNT).length >= HARD_COUNT
 
   const refreshTeamState = async (nameLower: string) => {
     if (!isSupabaseConfigured) return
@@ -93,27 +86,17 @@ function DashboardFor({ track }: { track: Track }) {
       const rows = assigns as TeamAssignment[]
       setAssignments(rows)
       setAssignment(rows[0])
-      syncLanded(rows[0].case_number)
+      const idx = cases.findIndex((c) => c.number === rows[0].case_number)
+      if (idx >= 0) {
+        if (mechanism === 'wheel') {
+          const final = computeTargetRotation(0, idx, cases.length)
+          setRotation(final % 360)
+        }
+        setLandedIndex(idx)
+      }
     } else {
       setAssignments([])
       setAssignment(null)
-    }
-  }
-
-  // Snap both visualisations to a case so the recovered assignment lines up.
-  const syncLanded = (caseNumber: number) => {
-    if (caseNumber <= EASY_COUNT) {
-      const idx = easyCases.findIndex((c) => c.number === caseNumber)
-      if (idx >= 0) {
-        const final = computeTargetRotation(0, idx, easyCases.length)
-        setRotation(final % 360)
-        setWheelLanded(idx)
-      }
-      setMode('easy')
-    } else {
-      const idx = hardCases.findIndex((c) => c.number === caseNumber)
-      if (idx >= 0) setCoinLanded(idx)
-      setMode('hard')
     }
   }
 
@@ -163,7 +146,7 @@ function DashboardFor({ track }: { track: Track }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamName, track])
 
-  const deal = async (difficulty: Difficulty) => {
+  const deal = async () => {
     const name = teamName.trim()
     if (!name) {
       toast.push('Enter your team call-sign first.', 'error')
@@ -174,74 +157,59 @@ function DashboardFor({ track }: { track: Track }) {
       return
     }
     if (hasActiveCase) {
-      const open = activeAssignments.map((a) => labelOf(a.case_number)).join(', ')
+      const open = activeAssignments.map((a) => labelFor(a.case_number)).join(', ')
       toast.push(
         `Finish ${open} first — hand the report to a coordinator before dealing another.`,
         'error',
       )
       return
     }
-    if (difficulty === 'easy' && easyExhausted) {
-      toast.push('All 5 easy cases are already dealt to your team.', 'info')
-      return
-    }
-    if (difficulty === 'hard' && hardExhausted) {
-      toast.push('Both hard cases are already dealt to your team.', 'info')
+    if (allCasesDealt) {
+      toast.push(`All ${poolSize} cases on this track are already dealt to your team.`, 'info')
       return
     }
 
-    setMode(difficulty)
-    if (difficulty === 'easy') setWheelLanded(null)
-    else setCoinLanded(null)
+    setLandedIndex(null)
     setSpinning(true)
 
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const settleMs = reduceMotion ? 60 : difficulty === 'easy' ? 5700 : 2200
+    const settleMs = reduceMotion ? 60 : mechanism === 'wheel' ? 5700 : 2200
 
-    // Demo-mode: no backend — pick locally within the right pool.
+    // Demo-mode: no backend — pick locally within the track's pool.
     if (!isSupabaseConfigured) {
-      const pool = difficulty === 'easy' ? easyCases : hardCases
-      const alreadyDealt = new Set(
-        assignments
-          .filter((a) => difficultyFor(a.case_number) === difficulty)
-          .map((a) => a.case_number),
-      )
-      const remaining = pool.filter((c) => !alreadyDealt.has(c.number))
-      const pick = remaining.length > 0
-        ? remaining[Math.floor(Math.random() * remaining.length)]
-        : pool[Math.floor(Math.random() * pool.length)]
+      const alreadyDealt = new Set(assignments.map((a) => a.case_number))
+      const remaining = cases.filter((c) => !alreadyDealt.has(c.number))
+      const pick =
+        remaining.length > 0
+          ? remaining[Math.floor(Math.random() * remaining.length)]
+          : cases[Math.floor(Math.random() * cases.length)]
+      const idx = cases.findIndex((c) => c.number === pick.number)
 
       const assigned: TeamAssignment = {
         id: `demo-${Date.now()}`,
         team_name: name,
         track,
         case_number: pick.number,
-        difficulty,
+        difficulty: trackDifficulty,
         assigned_at: new Date().toISOString(),
       }
-      if (difficulty === 'easy') {
-        const idx = easyCases.findIndex((c) => c.number === pick.number)
-        const target = computeTargetRotation(rotation, idx, easyCases.length)
+      if (mechanism === 'wheel') {
+        const target = computeTargetRotation(rotation, idx, cases.length)
         setRotation(target)
-        setTimeout(() => {
-          setAssignment(assigned)
-          setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
-          setIsDemoAssignment(true)
-          setSpinning(false)
-          setWheelLanded(idx)
-          toast.push('Demo spin — connect Supabase to persist real assignments.', 'info')
-        }, settleMs)
-      } else {
-        const idx = hardCases.findIndex((c) => c.number === pick.number)
-        setTimeout(() => {
-          setAssignment(assigned)
-          setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
-          setIsDemoAssignment(true)
-          setSpinning(false)
-          setCoinLanded(idx)
-          toast.push('Demo toss — connect Supabase to persist real assignments.', 'info')
-        }, settleMs)
       }
+      setTimeout(() => {
+        setAssignment(assigned)
+        setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
+        setIsDemoAssignment(true)
+        setSpinning(false)
+        setLandedIndex(idx)
+        toast.push(
+          mechanism === 'wheel'
+            ? 'Demo spin — connect Supabase to persist real assignments.'
+            : 'Demo toss — connect Supabase to persist real assignments.',
+          'info',
+        )
+      }, settleMs)
       return
     }
 
@@ -249,36 +217,25 @@ function DashboardFor({ track }: { track: Track }) {
       const { data, error } = await supabase.rpc('assign_case', {
         p_team_name: name,
         p_track: track,
-        p_difficulty: difficulty,
       })
       if (error) throw error
       if (!data || typeof data !== 'object') throw new Error('Empty response from server')
       const row = Array.isArray(data) ? data[0] : data
       const assigned = row as TeamAssignment
+      const idx = cases.findIndex((c) => c.number === assigned.case_number)
 
-      if (difficulty === 'easy') {
-        const idx = easyCases.findIndex((c) => c.number === assigned.case_number)
-        const target = computeTargetRotation(rotation, idx, easyCases.length)
+      if (mechanism === 'wheel' && idx >= 0) {
+        const target = computeTargetRotation(rotation, idx, cases.length)
         setRotation(target)
-        setTimeout(() => {
-          setAssignment(assigned)
-          setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
-          setIsDemoAssignment(false)
-          setSpinning(false)
-          setWheelLanded(idx)
-          toast.push(`Case ${labelOf(assigned.case_number)} assigned!`, 'success')
-        }, settleMs)
-      } else {
-        const idx = hardCases.findIndex((c) => c.number === assigned.case_number)
-        setTimeout(() => {
-          setAssignment(assigned)
-          setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
-          setIsDemoAssignment(false)
-          setSpinning(false)
-          setCoinLanded(idx)
-          toast.push(`Case ${labelOf(assigned.case_number)} assigned!`, 'success')
-        }, settleMs)
       }
+      setTimeout(() => {
+        setAssignment(assigned)
+        setAssignments((prev) => [assigned, ...prev.filter((a) => a.case_number !== assigned.case_number)])
+        setIsDemoAssignment(false)
+        setSpinning(false)
+        setLandedIndex(idx)
+        toast.push(`Case ${labelFor(assigned.case_number)} assigned!`, 'success')
+      }, settleMs)
     } catch (e: any) {
       setSpinning(false)
       toast.push(e?.message || 'Could not assign a case. Please contact a coordinator.', 'error')
@@ -292,7 +249,7 @@ function DashboardFor({ track }: { track: Track }) {
     setLookupBusy(true)
     try {
       await refreshTeamState(q.toLowerCase())
-      toast.push('Reloaded this team\'s assignments.', 'success')
+      toast.push("Reloaded this team's assignments.", 'success')
     } finally {
       setLookupBusy(false)
     }
@@ -302,8 +259,9 @@ function DashboardFor({ track }: { track: Track }) {
   const tone: 'red' | 'cyan' = track === 'junior' ? 'cyan' : 'red'
   const toneColor = tone === 'red' ? '#dc2626' : '#06b6d4'
 
-  const easyDealtCount = assignments.filter((a) => a.case_number <= EASY_COUNT).length
-  const hardDealtCount = assignments.filter((a) => a.case_number > EASY_COUNT).length
+  const dealVerb = mechanism === 'wheel' ? 'Spin' : 'Toss'
+  const dealLabel =
+    mechanism === 'wheel' ? 'Spin the wheel' : 'Toss the coin'
 
   return (
     <section className="relative overflow-hidden grain">
@@ -320,20 +278,21 @@ function DashboardFor({ track }: { track: Track }) {
               </span>
               <span className="text-stone-600 hidden sm:inline">/</span>
               <span>
-                {EASY_COUNT} easy · {HARD_COUNT} hard
+                {poolSize} {trackDifficulty} {poolSize === 1 ? 'case' : 'cases'}
               </span>
             </div>
             <h1 className="font-serif italic text-stone-50 text-3xl sm:text-4xl md:text-5xl mt-3 leading-[1.05]">
               Investigation <span className="scribble">dashboard</span>.
             </h1>
             <p className="mt-3 text-stone-400 max-w-xl text-sm leading-relaxed">
-              {TRACK_DESCRIPTION[track]} Easy cases on the wheel, hard cases
-              behind the coin. One case active at a time — hand the report
-              to a coordinator before dealing another.
+              {TRACK_DESCRIPTION[track]}
             </p>
           </div>
-          <span className="stamp stamp-tilt mt-1 shrink-0 hidden sm:inline-block" style={{ fontSize: '0.75rem' }}>
-            Case Intake · α
+          <span
+            className="stamp stamp-tilt mt-1 shrink-0 hidden sm:inline-block"
+            style={{ fontSize: '0.75rem' }}
+          >
+            {trackDifficulty === 'hard' ? 'Hard · α' : 'Easy · α'}
           </span>
         </div>
 
@@ -406,65 +365,104 @@ function DashboardFor({ track }: { track: Track }) {
                 />
               </div>
 
-              {/* ── Deal buttons: Spin for Easy / Toss for Hard ── */}
-              <div className="relative mt-6 grid gap-3 sm:grid-cols-2">
-                <DealButton
-                  label="Spin for Easy"
-                  sub={`${easyDealtCount}/${EASY_COUNT} dealt`}
-                  disabled={spinning || hasActiveCase || easyExhausted}
-                  active={mode === 'easy' && spinning}
-                  tone="cyan"
-                  onClick={() => deal('easy')}
-                  icon={<RotateCw size={16} className="opacity-80" />}
-                />
-                <DealButton
-                  label="Toss for Hard"
-                  sub={`${hardDealtCount}/${HARD_COUNT} dealt`}
-                  disabled={spinning || hasActiveCase || hardExhausted}
-                  active={mode === 'hard' && spinning}
-                  tone="red"
-                  onClick={() => deal('hard')}
-                  icon={<Coins size={16} className="opacity-80" />}
-                />
-              </div>
-              <p className="text-[0.62rem] text-stone-600 mt-2 text-center tracking-widest uppercase font-mono">
-                {spinning
-                  ? mode === 'easy'
-                    ? '> routing through intelligence… <'
-                    : '> coin airborne… <'
-                  : hasActiveCase
-                  ? `> locked — hand in ${labelOf(activeAssignments[0].case_number)} first <`
-                  : allCasesDealt
-                  ? `> all ${CASE_COUNT} cases assigned to this team <`
-                  : assignments.length > 0
-                  ? `> ${assignments.length}/${CASE_COUNT} dealt · pick your next <`
-                  : teamName.trim().length < 2
-                  ? '> awaiting call-sign <'
-                  : '> pick a mechanism to deploy <'}
-              </p>
+              {/* Single deal button — spin for juniors, toss for seniors. */}
+              <div className="relative mt-6">
+                {!spinning &&
+                  !allCasesDealt &&
+                  !hasActiveCase &&
+                  teamName.trim().length >= 2 && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-[-6px] rounded-sm blur-xl breath pointer-events-none bg-red-500/30"
+                    />
+                  )}
+                <button
+                  onClick={deal}
+                  disabled={spinning || allCasesDealt || hasActiveCase}
+                  className="relative w-full bg-stone-900 text-stone-50 py-5 font-display tracking-[0.3em] uppercase text-sm font-bold overflow-hidden border-2 border-stone-900 hover:bg-red-600 hover:border-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+                  style={{
+                    clipPath: 'polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%)',
+                  }}
+                >
+                  <span className="relative inline-flex items-center gap-3 justify-center">
+                    {spinning ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        {mechanism === 'wheel' ? 'Dealing next case…' : 'Coin airborne…'}
+                      </>
+                    ) : hasActiveCase ? (
+                      <>
+                        <Lock size={16} />
+                        Case {labelFor(activeAssignments[0].case_number)} active · submit first
+                      </>
+                    ) : allCasesDealt ? (
+                      <>
+                        <FileSearch size={18} /> All {poolSize} cases dealt
+                      </>
+                    ) : assignments.length > 0 ? (
+                      <>
+                        {mechanism === 'wheel' ? <Sparkles size={18} /> : <Coins size={18} />}
+                        {dealVerb} again ({assignments.length}/{poolSize})
+                        {mechanism === 'wheel' ? (
+                          <RotateCw
+                            size={16}
+                            className="opacity-80 transition-transform group-hover:rotate-180 duration-700"
+                          />
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {mechanism === 'wheel' ? <Sparkles size={18} /> : <Coins size={18} />}
+                        {dealLabel}
+                        {mechanism === 'wheel' ? (
+                          <RotateCw
+                            size={16}
+                            className="opacity-80 transition-transform group-hover:rotate-180 duration-700"
+                          />
+                        ) : null}
+                      </>
+                    )}
+                  </span>
+                </button>
+                <p className="text-[0.62rem] text-stone-600 mt-2 text-center tracking-widest uppercase font-mono">
+                  {spinning
+                    ? mechanism === 'wheel'
+                      ? '> routing through intelligence… <'
+                      : '> coin airborne… <'
+                    : hasActiveCase
+                    ? `> locked — hand in ${labelFor(activeAssignments[0].case_number)} first <`
+                    : allCasesDealt
+                    ? `> all ${poolSize} cases assigned to this team <`
+                    : assignments.length > 0
+                    ? `> ${assignments.length}/${poolSize} dealt · press to deal the next case <`
+                    : teamName.trim().length < 2
+                    ? '> awaiting call-sign <'
+                    : '> press to deploy <'}
+                </p>
 
-              {/* Active-case lockout notice */}
-              {hasActiveCase && (
-                <div className="mt-4 rounded-sm border border-amber-600/60 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-                  <Lock size={14} className="text-amber-700 mt-0.5 shrink-0" />
-                  <div className="text-xs text-stone-800 leading-relaxed">
-                    <div className="font-display font-bold tracking-widest uppercase text-amber-800 text-[0.65rem]">
-                      One case at a time
+                {/* Active-case lockout notice */}
+                {hasActiveCase && (
+                  <div className="mt-4 rounded-sm border border-amber-600/60 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+                    <Lock size={14} className="text-amber-700 mt-0.5 shrink-0" />
+                    <div className="text-xs text-stone-800 leading-relaxed">
+                      <div className="font-display font-bold tracking-widest uppercase text-amber-800 text-[0.65rem]">
+                        One case at a time
+                      </div>
+                      <p className="mt-1 font-serif italic text-stone-900">
+                        Your team is still on{' '}
+                        <span className="font-bold">
+                          Case {labelFor(activeAssignments[0].case_number)}
+                          {activeAssignments.length > 1
+                            ? ` (+${activeAssignments.length - 1} more)`
+                            : ''}
+                        </span>
+                        . Hand the report to a coordinator — the {mechanism === 'wheel' ? 'wheel' : 'coin'}{' '}
+                        re-opens the moment they record your submission.
+                      </p>
                     </div>
-                    <p className="mt-1 font-serif italic text-stone-900">
-                      Your team is still on{' '}
-                      <span className="font-bold">
-                        Case {labelOf(activeAssignments[0].case_number)}
-                        {activeAssignments.length > 1
-                          ? ` (+${activeAssignments.length - 1} more)`
-                          : ''}
-                      </span>
-                      . Hand the report to a coordinator — the wheel and coin
-                      re-open the moment they record your submission.
-                    </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Case selector if multiple cases dealt */}
@@ -478,7 +476,13 @@ function DashboardFor({ track }: { track: Track }) {
                     key={a.id}
                     onClick={() => {
                       setAssignment(a)
-                      syncLanded(a.case_number)
+                      const idx = cases.findIndex((c) => c.number === a.case_number)
+                      if (idx >= 0) {
+                        if (mechanism === 'wheel') {
+                          setRotation(computeTargetRotation(0, idx, cases.length) % 360)
+                        }
+                        setLandedIndex(idx)
+                      }
                     }}
                     className={`px-3 py-1 text-xs font-mono rounded transition-all border ${
                       assignment?.id === a.id
@@ -486,7 +490,7 @@ function DashboardFor({ track }: { track: Track }) {
                         : 'bg-stone-900/80 text-stone-400 border-stone-800 hover:text-white hover:border-stone-600'
                     }`}
                   >
-                    {labelOf(a.case_number)}
+                    {labelFor(a.case_number)}
                   </button>
                 ))}
               </div>
@@ -513,7 +517,7 @@ function DashboardFor({ track }: { track: Track }) {
               <h3 className="font-serif italic text-stone-50 text-2xl leading-tight">
                 How to run your case.
               </h3>
-              {PROCEDURE.map((p, i) => (
+              {procedureFor(mechanism).map((p, i) => (
                 <li
                   key={p.title}
                   className="grid grid-cols-[auto,1fr] gap-4 pt-3 border-t border-stone-700/50"
@@ -536,13 +540,15 @@ function DashboardFor({ track }: { track: Track }) {
           <div className="order-1 lg:order-2 space-y-6">
             <div className="paper-dark rounded-sm px-5 pt-6 pb-6 relative isolate">
               <span className="tape tape-cyan" style={{ top: -10, left: 20, zIndex: 2 }} />
-              <div className="flex items-center justify-between mb-4 relative z-10 gap-2 flex-wrap">
+              <div className="flex items-center justify-between mb-6 relative z-10 gap-2 flex-wrap">
                 <div>
                   <div className="font-mono text-[0.6rem] tracking-widest uppercase text-stone-500">
-                    {mode === 'easy' ? 'Case selector · Wheel' : 'Case selector · Coin'}
+                    {mechanism === 'wheel'
+                      ? 'Case selector · Wheel'
+                      : 'Case selector · Coin'}
                   </div>
                   <div className="font-serif italic text-stone-50 text-lg">
-                    {mode === 'easy' ? 'The server picks.' : 'Fate picks.'}
+                    {mechanism === 'wheel' ? 'The server picks.' : 'Fate picks.'}
                   </div>
                 </div>
                 <StatusChip
@@ -550,90 +556,106 @@ function DashboardFor({ track }: { track: Track }) {
                 />
               </div>
 
-              {/* Mode toggle */}
-              <div className="flex gap-2 mb-4 relative z-10">
-                <button
-                  onClick={() => setMode('easy')}
-                  disabled={spinning}
-                  className={`flex-1 py-2 text-[0.6rem] font-display tracking-widest uppercase border transition-colors ${
-                    mode === 'easy'
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200'
-                      : 'bg-stone-900/60 border-stone-700 text-stone-400 hover:border-stone-500'
-                  }`}
-                >
-                  <RotateCw size={11} className="inline mr-1" /> Wheel · {EASY_COUNT} easy
-                </button>
-                <button
-                  onClick={() => setMode('hard')}
-                  disabled={spinning}
-                  className={`flex-1 py-2 text-[0.6rem] font-display tracking-widest uppercase border transition-colors ${
-                    mode === 'hard'
-                      ? 'bg-red-500/20 border-red-500 text-red-200'
-                      : 'bg-stone-900/60 border-stone-700 text-stone-400 hover:border-stone-500'
-                  }`}
-                >
-                  <Coins size={11} className="inline mr-1" /> Coin · {HARD_COUNT} hard
-                </button>
-              </div>
-
-              {mode === 'easy' ? (
+              {mechanism === 'wheel' ? (
                 <Wheel
-                  cases={easyCases}
+                  cases={cases}
                   rotation={rotation}
-                  spinning={spinning && mode === 'easy'}
+                  spinning={spinning}
                   color={tone === 'red' ? 'violet' : 'cyan'}
-                  landedIndex={wheelLanded}
+                  landedIndex={landedIndex}
                 />
               ) : (
                 <CoinToss
-                  cases={hardCases}
-                  spinning={spinning && mode === 'hard'}
-                  landedIndex={coinLanded}
+                  cases={cases}
+                  spinning={spinning}
+                  landedIndex={landedIndex}
                   color={tone === 'red' ? 'violet' : 'cyan'}
                 />
               )}
 
               <p className="mt-5 text-center text-[0.62rem] tracking-widest uppercase font-mono text-stone-500">
-                {mode === 'easy'
+                {mechanism === 'wheel'
                   ? 'the wheel just announces it.'
                   : 'the coin just announces it.'}
               </p>
             </div>
 
-            {/* Case index — easy on top, hard below */}
+            {/* Case index — only this track's pool */}
             <div className="paper rounded-sm p-5 relative">
               <span className="tape tape-red" style={{ top: -10, right: 20 }} />
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                 <div className="font-mono text-[0.6rem] tracking-widest uppercase text-stone-600">
-                  Case index · {CASE_COUNT} files
+                  Case index · {cases.length} {trackDifficulty} {cases.length === 1 ? 'file' : 'files'}
                 </div>
-                <div className="flex items-center gap-2 text-[0.55rem] font-mono tracking-widest uppercase">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
-                    <span className="text-stone-600">{EASY_COUNT} Easy</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-700" />
-                    <span className="text-stone-600">{HARD_COUNT} Hard</span>
-                  </span>
-                </div>
+                <span
+                  className={`font-mono tracking-widest uppercase text-[0.55rem] px-2 py-0.5 border ${
+                    trackDifficulty === 'hard'
+                      ? 'border-red-700/60 text-red-700 bg-red-700/5'
+                      : 'border-emerald-800/50 text-emerald-800 bg-emerald-700/5'
+                  }`}
+                >
+                  {trackDifficulty === 'hard' ? 'Hard pool' : 'Easy pool'}
+                </span>
               </div>
 
-              <IndexGroup
-                heading="Easy pool"
-                items={easyCases}
-                assignment={assignment}
-                assignments={assignments}
-                solvedCases={solvedCases}
-              />
-              <div className="mt-3" />
-              <IndexGroup
-                heading="Hard pool"
-                items={hardCases}
-                assignment={assignment}
-                assignments={assignments}
-                solvedCases={solvedCases}
-              />
+              <ul className="space-y-1.5">
+                {cases.map((c) => {
+                  const isMine = assignment?.case_number === c.number
+                  const assignedToTeam = assignments.some(
+                    (a) => a.case_number === c.number,
+                  )
+                  const solved = solvedCases.has(c.number)
+                  const active = assignedToTeam && !solved
+                  return (
+                    <li
+                      key={c.number}
+                      className={`flex items-center justify-between gap-3 px-3 py-2 border transition-colors ${
+                        active
+                          ? 'border-amber-600 bg-amber-500/15 text-stone-900'
+                          : solved
+                          ? 'border-emerald-700/60 bg-emerald-600/10 text-stone-900'
+                          : isMine
+                          ? 'border-red-600 bg-red-600/10 text-stone-900'
+                          : 'border-stone-900/15 text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className={`font-mono text-xs tabular-nums ${
+                            active
+                              ? 'text-amber-700 font-bold'
+                              : solved
+                              ? 'text-emerald-800 font-bold'
+                              : isMine
+                              ? 'text-red-600 font-bold'
+                              : 'text-stone-500'
+                          }`}
+                        >
+                          #{c.label}
+                        </span>
+                        <span className="font-serif italic text-sm truncate">
+                          {c.title}
+                        </span>
+                      </div>
+                      {active ? (
+                        <span className="shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border border-amber-700 bg-amber-500/40 text-amber-900 font-bold">
+                          Active
+                        </span>
+                      ) : solved ? (
+                        <span className="shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border border-emerald-800 bg-emerald-600/40 text-emerald-900 font-bold">
+                          Cleared
+                        </span>
+                      ) : isMine ? (
+                        <span className="stamp shrink-0" style={{ fontSize: '0.5rem', padding: '0.08em 0.3em' }}>
+                          Yours
+                        </span>
+                      ) : (
+                        <Fingerprint size={11} className="text-stone-500 shrink-0" />
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           </div>
         </div>
@@ -657,144 +679,6 @@ function DashboardFor({ track }: { track: Track }) {
         </div>
       </div>
     </section>
-  )
-}
-
-function labelOf(caseNumber: number): string {
-  return caseNumber <= EASY_COUNT ? `E${caseNumber}` : `H${caseNumber - EASY_COUNT}`
-}
-
-/* ───────────────── Case index group ───────────────── */
-
-interface GroupProps {
-  heading: string
-  items: ReturnType<typeof getCases>
-  assignment: TeamAssignment | null
-  assignments: TeamAssignment[]
-  solvedCases: Set<number>
-}
-
-function IndexGroup({
-  heading,
-  items,
-  assignment,
-  assignments,
-  solvedCases,
-}: GroupProps) {
-  return (
-    <div>
-      <div className="font-mono text-[0.55rem] tracking-widest uppercase text-stone-600 mb-2">
-        {heading}
-      </div>
-      <ul className="space-y-1.5">
-        {items.map((c) => {
-          const isMine = assignment?.case_number === c.number
-          const assignedToTeam = assignments.some((a) => a.case_number === c.number)
-          const solved = solvedCases.has(c.number)
-          const active = assignedToTeam && !solved
-          const hard = c.difficulty === 'hard'
-          return (
-            <li
-              key={c.number}
-              className={`flex items-center justify-between gap-3 px-3 py-2 border transition-colors ${
-                active
-                  ? 'border-amber-600 bg-amber-500/15 text-stone-900'
-                  : solved
-                  ? 'border-emerald-700/60 bg-emerald-600/10 text-stone-900'
-                  : isMine
-                  ? 'border-red-600 bg-red-600/10 text-stone-900'
-                  : 'border-stone-900/15 text-stone-700'
-              }`}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <span
-                  className={`font-mono text-xs tabular-nums ${
-                    active
-                      ? 'text-amber-700 font-bold'
-                      : solved
-                      ? 'text-emerald-800 font-bold'
-                      : isMine
-                      ? 'text-red-600 font-bold'
-                      : 'text-stone-500'
-                  }`}
-                >
-                  #{c.label}
-                </span>
-                <span className="font-serif italic text-sm truncate">{c.title}</span>
-                <span
-                  className={`shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border ${
-                    hard
-                      ? 'border-red-700/60 text-red-700 bg-red-700/5'
-                      : 'border-emerald-800/50 text-emerald-800 bg-emerald-700/5'
-                  }`}
-                >
-                  {hard ? 'Hard' : 'Easy'}
-                </span>
-              </div>
-              {active ? (
-                <span className="shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border border-amber-700 bg-amber-500/40 text-amber-900 font-bold">
-                  Active
-                </span>
-              ) : solved ? (
-                <span className="shrink-0 font-mono tracking-widest uppercase text-[0.5rem] px-1.5 py-0.5 border border-emerald-800 bg-emerald-600/40 text-emerald-900 font-bold">
-                  Cleared
-                </span>
-              ) : isMine ? (
-                <span className="stamp shrink-0" style={{ fontSize: '0.5rem', padding: '0.08em 0.3em' }}>
-                  Yours
-                </span>
-              ) : (
-                <Fingerprint size={11} className="text-stone-500 shrink-0" />
-              )}
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-/* ───────────────── Deal button ───────────────── */
-
-function DealButton({
-  label,
-  sub,
-  icon,
-  tone,
-  disabled,
-  active,
-  onClick,
-}: {
-  label: string
-  sub: string
-  icon: React.ReactNode
-  tone: 'cyan' | 'red'
-  disabled: boolean
-  active: boolean
-  onClick: () => void
-}) {
-  const base =
-    tone === 'red'
-      ? 'bg-stone-900 hover:bg-red-600 hover:border-red-600 border-stone-900'
-      : 'bg-stone-900 hover:bg-cyan-600 hover:border-cyan-600 border-stone-900'
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`relative w-full text-stone-50 py-4 font-display tracking-[0.2em] uppercase text-xs sm:text-sm font-bold overflow-hidden border-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group ${base}`}
-      style={{
-        clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
-      }}
-    >
-      <span className="relative inline-flex items-center gap-2 justify-center">
-        {active ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-        {label}
-        {icon}
-      </span>
-      <span className="block mt-1 text-[0.55rem] text-stone-400 tracking-widest uppercase">
-        {sub}
-      </span>
-    </button>
   )
 }
 
@@ -957,21 +841,30 @@ function StatusChip({ status }: { status: 'await' | 'ready' | 'routing' | 'seale
 
 /* ───────────────── Procedure data ───────────────── */
 
-const PROCEDURE = [
-  {
-    title: 'Pick a mechanism.',
-    desc: 'Spin the wheel for an easy case, or toss the coin for a hard one. The server deals you an unassigned brief from that pool.',
-  },
-  {
-    title: 'Open the sealed PDF.',
-    desc: 'Every hint on your case is in that one brief — timestamps, trace fragments, redacted lines, cross-references.',
-  },
-  {
-    title: 'Follow the hints offline.',
-    desc: 'Nothing on this site evaluates your answer. Work the case in your team — code, notes, whiteboard, whatever helps.',
-  },
-  {
-    title: 'Submit the report.',
-    desc: 'Hand the written report to a coordinator. Once they record it, the wheel and coin re-open for your next pick.',
-  },
-]
+function procedureFor(mechanism: 'wheel' | 'coin') {
+  const first =
+    mechanism === 'wheel'
+      ? {
+          title: 'Spin the wheel.',
+          desc: 'The server deals you a random easy case from the pool. Only one case at a time — spin again after you submit.',
+        }
+      : {
+          title: 'Toss the coin.',
+          desc: 'The server picks one of the two hard cases. Only one case at a time — toss again after you submit.',
+        }
+  return [
+    first,
+    {
+      title: 'Open the sealed PDF.',
+      desc: 'Every hint on your case is in that one brief — timestamps, trace fragments, redacted lines, cross-references.',
+    },
+    {
+      title: 'Follow the hints offline.',
+      desc: 'Nothing on this site evaluates your answer. Work the case in your team — code, notes, whiteboard, whatever helps.',
+    },
+    {
+      title: 'Submit the report.',
+      desc: 'Hand the written report to a coordinator. Once they record it, the mechanism re-opens for your next pick.',
+    },
+  ]
+}
