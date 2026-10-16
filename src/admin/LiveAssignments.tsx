@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Clock, Radio, Stamp, Users } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { ResultRow, TeamAssignment, Track } from '../lib/types'
-import { difficultyFor, labelFor, titleFor, TRACK_LABEL } from '../lib/cases'
+import {
+  difficultyFor,
+  getAllCases,
+  labelFor,
+  titleFor,
+  TRACK_LABEL,
+} from '../lib/cases'
 
 interface Props {
   results: ResultRow[]
@@ -109,6 +115,19 @@ export function LiveAssignments({ results, onRecord }: Props) {
     enriched.map((e) => `${e.team_name.toLowerCase()}|${e.track}`),
   ).size
 
+  // Per-case load: how many teams are on each case right now, and how many
+  // of those have submitted. Confirms visually that multiple teams can hold
+  // the same case concurrently — exactly what 40 teams × 8 cases needs.
+  const caseLoad = useMemo(() => {
+    const all = getAllCases()
+    return all.map((c) => {
+      const onCase = enriched.filter((e) => e.case_number === c.number)
+      const active = onCase.filter((e) => !e.result?.is_solved).length
+      const submitted = onCase.filter((e) => e.result?.is_solved).length
+      return { case: c, active, submitted, total: onCase.length }
+    })
+  }, [enriched])
+
   return (
     <div className="glass rounded-2xl p-5 sm:p-6 md:p-8 relative overflow-hidden">
       <span
@@ -145,8 +164,61 @@ export function LiveAssignments({ results, onRecord }: Props) {
         </div>
       </div>
 
+      {/* ======= PER-CASE LOAD ======= */}
+      <div className="mt-5">
+        <div className="section-title mb-2">
+          // Case load · teams currently holding each brief
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          {caseLoad.map(({ case: c, active, submitted, total }) => {
+            const hard = c.difficulty === 'hard'
+            const hot = active >= 5
+            return (
+              <div
+                key={c.number}
+                className={`rounded-md border p-2 relative overflow-hidden ${
+                  hard
+                    ? 'border-cyber-amber/40 bg-cyber-amber/5'
+                    : 'border-cyber-cyan/30 bg-cyber-cyan/5'
+                }`}
+                title={`${c.label} — ${c.title}: ${active} active, ${submitted} submitted (${total} total)`}
+              >
+                <div className="flex items-baseline justify-between gap-1">
+                  <span
+                    className={`font-display font-bold text-sm ${
+                      hard ? 'text-cyber-amber' : 'text-cyber-cyan'
+                    }`}
+                  >
+                    {c.label}
+                  </span>
+                  <span
+                    className={`font-display font-bold text-xl tabular-nums ${
+                      hot
+                        ? 'text-cyber-danger'
+                        : active > 0
+                        ? 'text-white'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {active}
+                  </span>
+                </div>
+                <div className="text-[0.55rem] text-slate-500 tabular-nums tracking-widest uppercase font-mono">
+                  active · {submitted} done
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-[0.6rem] text-slate-500 mt-2 italic">
+          Multiple teams on the same case is expected — the DB allows every
+          case to be held in parallel; only each team's own "one at a time"
+          rule is enforced.
+        </p>
+      </div>
+
       {/* Filters */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
         {(['all', 'pending', 'submitted'] as const).map((f) => (
           <button
             key={f}
