@@ -16,7 +16,7 @@ import { useResults } from '../admin/useResults'
 import { ResultsUploader } from '../admin/ResultsUploader'
 import { ResultsEditor, type ResultsEditorHandle } from '../admin/ResultsEditor'
 import { LiveAssignments } from '../admin/LiveAssignments'
-import { TRACK_LABEL, labelFor } from '../lib/cases'
+import { TRACK_LABEL, labelFor, titleFor } from '../lib/cases'
 import { useCountUp, useTilt } from '../lib/hooks'
 
 export function Admin() {
@@ -170,8 +170,8 @@ function AdminInner() {
                 >
                   {TRACK_LABEL[r.track]}
                 </span>
-                <span className="chip font-mono text-[0.65rem]">
-                  Case {labelFor(r.case_number)}
+                <span className="chip font-mono text-[0.65rem]" title={titleFor(r.case_number)}>
+                  {labelFor(r.case_number)} · {titleFor(r.case_number)}
                 </span>
                 {r.is_solved ? (
                   <span className="chip chip-success text-[0.65rem]">Solved</span>

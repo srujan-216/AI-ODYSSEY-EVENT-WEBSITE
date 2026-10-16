@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Clock, Radio, Stamp, Users } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { ResultRow, TeamAssignment, Track } from '../lib/types'
-import { difficultyFor, labelFor, TRACK_LABEL } from '../lib/cases'
+import { difficultyFor, labelFor, titleFor, TRACK_LABEL } from '../lib/cases'
 
 interface Props {
   results: ResultRow[]
@@ -238,6 +238,9 @@ export function LiveAssignments({ results, onRecord }: Props) {
                           Awaiting report
                         </span>
                       )}
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-300 truncate">
+                      {titleFor(a.case_number)}
                     </div>
                     <div className="mt-1 text-[0.65rem] text-slate-500 font-mono tabular-nums flex flex-wrap gap-x-3 gap-y-0.5">
                       <span>

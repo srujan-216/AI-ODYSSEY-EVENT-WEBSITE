@@ -8,6 +8,7 @@ import {
   TRACK_DIFFICULTY,
   difficultyFor,
   labelFor,
+  titleFor,
 } from '../lib/cases'
 import { useToast } from '../components/Toast'
 
@@ -291,7 +292,10 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                   </span>
                 </td>
                 <td className="py-2 px-3 font-mono text-xs text-cyber-cyan">
-                  Case {labelFor(r.case_number)}
+                  <div className="font-bold">{labelFor(r.case_number)}</div>
+                  <div className="text-[0.65rem] text-slate-400 font-sans truncate max-w-[180px]">
+                    {titleFor(r.case_number)}
+                  </div>
                 </td>
                 <td className="py-2 px-3">
                   {r.is_solved ? (
@@ -387,8 +391,11 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                   >
                     {TRACK_LABEL[editing.track]}
                   </span>
-                  <span className="chip text-[0.6rem] font-mono">
-                    Case {labelFor(editing.case_number)}
+                  <span
+                    className="chip text-[0.6rem] font-mono"
+                    title={titleFor(editing.case_number)}
+                  >
+                    {labelFor(editing.case_number)} · {titleFor(editing.case_number)}
                   </span>
                 </div>
                 <p className="text-[0.6rem] text-slate-500 mt-1 font-mono tracking-widest uppercase">
@@ -447,7 +454,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                       >
                         {caseNumbersForTrack(editing.track).map((c) => (
                           <option key={c} value={c}>
-                            Case {labelFor(c)}
+                            {labelFor(c)} — {titleFor(c)}
                           </option>
                         ))}
                       </select>

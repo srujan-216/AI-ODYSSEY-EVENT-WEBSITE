@@ -21,9 +21,11 @@ export type Mechanism = 'wheel' | 'coin'
 
 export interface CaseConfig {
   number: number
-  /** Human-visible label: E1..E5 for easy, H1..H2 for hard. */
+  /** Human-visible label: E1..E6 for easy, H1..H2 for hard. */
   label: string
   title: string
+  /** One-line teaser shown on the case reveal + case index. */
+  tagline: string
   pdfPath: string
   difficulty: Difficulty
 }
@@ -32,16 +34,67 @@ export const CASE_COUNT = 8
 export const EASY_COUNT = 6
 export const HARD_COUNT = 2
 
-/** case_number → label + title. 1..6 easy, 7..8 hard. */
-const CATALOG: Record<number, { label: string; title: string; difficulty: Difficulty }> = {
-  1: { label: 'E1', title: 'Easy Case · 01', difficulty: 'easy' },
-  2: { label: 'E2', title: 'Easy Case · 02', difficulty: 'easy' },
-  3: { label: 'E3', title: 'Easy Case · 03', difficulty: 'easy' },
-  4: { label: 'E4', title: 'Easy Case · 04', difficulty: 'easy' },
-  5: { label: 'E5', title: 'Easy Case · 05', difficulty: 'easy' },
-  6: { label: 'E6', title: 'Easy Case · 06', difficulty: 'easy' },
-  7: { label: 'H1', title: 'Hard Case · 01', difficulty: 'hard' },
-  8: { label: 'H2', title: 'Hard Case · 02', difficulty: 'hard' },
+/**
+ * Case catalog — single source of truth for every label, title, and tagline
+ * shown anywhere on the site. Arranged in the exact draw order:
+ *
+ *   case_number 1..6 → E1..E6 (easy, Mystery Squad, wheel)
+ *   case_number 7..8 → H1..H2 (hard, Mystery Masters, coin toss)
+ *
+ * To rename a case, edit this one map — nothing else needs to change.
+ */
+const CATALOG: Record<
+  number,
+  { label: string; title: string; tagline: string; difficulty: Difficulty }
+> = {
+  1: {
+    label: 'E1',
+    title: 'The Vanishing Dataset',
+    tagline: 'A nightly export comes up empty. The pipeline swears it ran.',
+    difficulty: 'easy',
+  },
+  2: {
+    label: 'E2',
+    title: 'Ghost in the Mainframe',
+    tagline: 'The log tails show a user who never logged in.',
+    difficulty: 'easy',
+  },
+  3: {
+    label: 'E3',
+    title: 'Operation Blackbox',
+    tagline: 'The model keeps answering. No one can explain why.',
+    difficulty: 'easy',
+  },
+  4: {
+    label: 'E4',
+    title: 'The Encrypted Letter',
+    tagline: 'A ciphered memo. Three suspects. One alibi too many.',
+    difficulty: 'easy',
+  },
+  5: {
+    label: 'E5',
+    title: 'Signal Fade',
+    tagline: 'A field transmission cuts out mid-sentence. Trace the drop.',
+    difficulty: 'easy',
+  },
+  6: {
+    label: 'E6',
+    title: 'The Phantom Commit',
+    tagline: 'The diff is signed by someone who left two years ago.',
+    difficulty: 'easy',
+  },
+  7: {
+    label: 'H1',
+    title: 'Neural Heist',
+    tagline: 'The weights are gone. The audit trail says they never left.',
+    difficulty: 'hard',
+  },
+  8: {
+    label: 'H2',
+    title: 'Deepfake Protocol',
+    tagline: 'Four witnesses, four stories, one voice that was never there.',
+    difficulty: 'hard',
+  },
 }
 
 export function difficultyFor(caseNumber: number): Difficulty {
@@ -54,6 +107,10 @@ export function labelFor(caseNumber: number): string {
 
 export function titleFor(caseNumber: number): string {
   return CATALOG[caseNumber]?.title ?? `Case ${caseNumber}`
+}
+
+export function taglineFor(caseNumber: number): string {
+  return CATALOG[caseNumber]?.tagline ?? ''
 }
 
 /** Each track is bound to one difficulty pool and one mechanism. */
@@ -77,6 +134,7 @@ function buildCase(n: number): CaseConfig {
     number: n,
     label,
     title: meta?.title ?? `Case ${n}`,
+    tagline: meta?.tagline ?? '',
     // PDFs served from public/cases/<label-lowercased>.pdf
     pdfPath: `/cases/${label.toLowerCase()}.pdf`,
     difficulty: meta?.difficulty ?? 'easy',

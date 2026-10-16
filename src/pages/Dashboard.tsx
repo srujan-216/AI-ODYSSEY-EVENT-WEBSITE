@@ -760,12 +760,17 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
 
       <div className="mt-6 pt-5 border-t border-stone-900/15">
         <div className="font-mono text-[0.6rem] tracking-widest uppercase text-stone-600 mb-2">
-          Synopsis — illustrative
+          Opening lead
         </div>
-        <p className="font-serif italic text-stone-900 text-base md:text-lg leading-relaxed">
-          The hints are inside the sealed PDF. Walk the timeline, run the
-          traces, cross-reference the fragments. When your reasoning is tight,
-          write the report and hand it to a coordinator.
+        {assignedCase.tagline && (
+          <p className="font-serif italic text-stone-900 text-base md:text-lg leading-relaxed">
+            {assignedCase.tagline}
+          </p>
+        )}
+        <p className="mt-3 font-serif text-stone-700 text-sm leading-relaxed">
+          Every other hint is inside the sealed PDF — timestamps, trace
+          fragments, redactions, cross-references. Walk the timeline, build
+          the report, hand it to a coordinator.
         </p>
       </div>
 
