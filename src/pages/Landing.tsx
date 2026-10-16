@@ -90,7 +90,7 @@ export function Landing() {
                 <span className="text-stone-200">MVSR&nbsp;Engineering&nbsp;College</span>
                 <span className="text-stone-600">—</span>
                 <span className="text-stone-600">|</span>
-                <span className="text-amber-400">A&nbsp;6-Hour&nbsp;Forensic&nbsp;Hunt</span>
+                <span className="text-amber-400">A&nbsp;Half-Day&nbsp;Forensic&nbsp;Hunt</span>
               </motion.div>
 
               {/* Headline — two lines */}
@@ -145,11 +145,13 @@ export function Landing() {
               >
                 <span className="inline-flex items-center gap-2 text-amber-400">
                   <Clock size={13} />
-                  <span className="text-red-500">A&nbsp;6-Hour&nbsp;Forensic</span>
+                  <span className="text-red-500">A&nbsp;Half-Day&nbsp;Forensic</span>
                   <span className="text-stone-300">Hunt</span>
                 </span>
                 <span className="text-stone-700">|</span>
-                <span className="text-stone-200 tabular-nums">10:30&nbsp;AM – 03:00&nbsp;PM</span>
+                <span className="text-stone-200 tabular-nums">
+                  10:30&nbsp;AM – 04:00&nbsp;PM&nbsp;deadline
+                </span>
               </motion.div>
 
               {/* Description */}
@@ -159,9 +161,11 @@ export function Landing() {
                 transition={{ duration: 0.6, delay: 3.3 }}
                 className="mt-6 text-stone-300 text-base md:text-lg max-w-xl leading-relaxed"
               >
-                A six-hour forensic hunt by <span className="text-stone-50">EMEL&nbsp;Club</span>,
-                MVSR&nbsp;Engineering. Each team is dealt one sealed PDF of hints —
-                connect the dots, follow the leads, and crack the case.
+                A half-day forensic hunt by <span className="text-stone-50">EMEL&nbsp;Club</span>,
+                MVSR&nbsp;Engineering. Starts 10:30 AM, final reports due by
+                <span className="text-amber-400">&nbsp;4:00 PM</span>. Each team
+                is dealt a sealed PDF of hints — connect the dots, follow the
+                leads, and crack the case.
               </motion.p>
 
               {/* Four investigation steps */}

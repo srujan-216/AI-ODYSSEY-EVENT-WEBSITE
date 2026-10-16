@@ -19,6 +19,8 @@ import {
   getCase,
   getCases,
   labelFor,
+  REPORT_DEADLINE_LABEL,
+  REPORT_DEADLINE_SHORT,
   TRACK_DESCRIPTION,
   TRACK_DIFFICULTY,
   TRACK_LABEL,
@@ -279,6 +281,10 @@ function DashboardFor({ track }: { track: Track }) {
               <span className="text-stone-600 hidden sm:inline">/</span>
               <span>
                 {poolSize} {trackDifficulty} {poolSize === 1 ? 'case' : 'cases'}
+              </span>
+              <span className="text-stone-600 hidden sm:inline">/</span>
+              <span className="text-amber-400">
+                Reports due {REPORT_DEADLINE_LABEL}
               </span>
             </div>
             <h1 className="font-serif italic text-stone-50 text-3xl sm:text-4xl md:text-5xl mt-3 leading-[1.05]">
@@ -755,7 +761,7 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
             minute: '2-digit',
           })}
         </Meta>
-        <Meta label="Report due">48 h from brief</Meta>
+        <Meta label="Report due">{REPORT_DEADLINE_SHORT} today</Meta>
       </dl>
 
       <div className="mt-6 pt-5 border-t border-stone-900/15">

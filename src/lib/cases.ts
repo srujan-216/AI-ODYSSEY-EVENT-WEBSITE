@@ -159,6 +159,15 @@ export function getCase(_track: Track, n: number): CaseConfig | undefined {
   return getAllCases().find((c) => c.number === n)
 }
 
+/**
+ * Final hand-in deadline for the offline written report. Shown on the case
+ * reveal and anywhere else the countdown matters. Pure display string — the
+ * server does not enforce this; a coordinator can still record a submission
+ * after the deadline if circumstances allow.
+ */
+export const REPORT_DEADLINE_LABEL = '4:00 PM today'
+export const REPORT_DEADLINE_SHORT = '16:00'
+
 export const TRACK_LABEL: Record<Track, string> = {
   junior: 'The Mystery Squad',
   senior: 'The Mystery Masters',
