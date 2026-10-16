@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowRight,
   Coins,
+  Download,
   ExternalLink,
   FileSearch,
   Fingerprint,
@@ -777,7 +778,7 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
         </p>
       </div>
 
-      <div className="mt-7">
+      <div className="mt-7 grid gap-3 sm:grid-cols-[1.4fr,1fr]">
         <a
           href={assignedCase.pdfPath}
           target="_blank"
@@ -790,7 +791,20 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
           <ExternalLink size={14} /> Open sealed PDF
           <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
         </a>
+        <a
+          href={assignedCase.pdfPath}
+          download={downloadFilenameFor(assignedCase, assignment.team_name)}
+          className="group w-full inline-flex items-center justify-center gap-3 bg-red-600 text-stone-50 py-4 font-display font-bold tracking-widest uppercase text-xs transition-colors hover:bg-stone-900 border-2 border-red-600 hover:border-stone-900"
+          style={{
+            clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+          }}
+        >
+          <Download size={14} /> Download
+        </a>
       </div>
+      <p className="mt-2 text-center text-[0.6rem] font-mono tracking-widest uppercase text-stone-500">
+        Open to read online, or Download to work offline / print.
+      </p>
 
       <div className="mt-4 rounded-sm border border-red-600/60 bg-red-600/10 px-4 py-3 flex items-start gap-3">
         <FileSearch size={14} className="text-red-600 mt-0.5 shrink-0" />
@@ -812,6 +826,23 @@ function CaseReveal({ assignment, assignedCase, track, isDemo }: RevealProps) {
       </p>
     </motion.div>
   )
+}
+
+/**
+ * Build a nice download filename from the case + team so Downloads folders
+ * don't collect generic "e1.pdf" files. Example:
+ *   AI-Odyssey-E3-Operation-Blackbox-GhostProtocol.pdf
+ */
+function downloadFilenameFor(
+  c: { label: string; title: string },
+  teamName: string,
+): string {
+  const slug = (s: string) =>
+    s
+      .replace(/[^\p{L}\p{N}]+/gu, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48)
+  return `AI-Odyssey-${c.label}-${slug(c.title)}-${slug(teamName)}.pdf`
 }
 
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {
