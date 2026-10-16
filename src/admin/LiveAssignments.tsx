@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Clock, Radio, Stamp, Users } from 'lucide-react'
+import { Clock, Radio, Stamp, Trash2, Users } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { ResultRow, TeamAssignment, Track } from '../lib/types'
 import {
@@ -9,6 +9,7 @@ import {
   titleFor,
   TRACK_LABEL,
 } from '../lib/cases'
+import { useToast } from '../components/Toast'
 
 interface Props {
   results: ResultRow[]
@@ -36,11 +37,13 @@ interface Enriched extends TeamAssignment {
  * the score when the offline report lands.
  */
 export function LiveAssignments({ results, onRecord }: Props) {
+  const toast = useToast()
   const [rows, setRows] = useState<TeamAssignment[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'submitted'>('all')
   const [trackFilter, setTrackFilter] = useState<'all' | Track>('all')
   const [now, setNow] = useState(Date.now())
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   // Ticking clock for elapsed time (updates every 15s — fine granularity for
   // 6-hour event; a per-second rerender here would be wasteful).
@@ -48,6 +51,40 @@ export function LiveAssignments({ results, onRecord }: Props) {
     const t = setInterval(() => setNow(Date.now()), 15_000)
     return () => clearInterval(t)
   }, [])
+
+  const deleteAssignment = async (a: Enriched) => {
+    const label = labelFor(a.case_number)
+    const ok = window.confirm(
+      `Delete the "${a.team_name}" assignment on Case ${label}?\n\n` +
+        (a.result
+          ? 'A recorded score exists for this team + case and will be deleted too.\n'
+          : '') +
+        'This cannot be undone.',
+    )
+    if (!ok) return
+
+    setDeleting(a.id)
+    try {
+      // Delete the result row first (if any) so the team's leaderboard entry
+      // for this case disappears alongside the assignment.
+      if (a.result) {
+        const { error } = await supabase.from('results').delete().eq('id', a.result.id)
+        if (error) throw error
+      }
+      const { error } = await supabase
+        .from('team_assignments')
+        .delete()
+        .eq('id', a.id)
+      if (error) throw error
+      toast.push(`Removed ${a.team_name} · Case ${label}.`, 'success')
+      // Realtime will refresh the list; also optimistically prune locally.
+      setRows((prev) => prev.filter((r) => r.id !== a.id))
+    } catch (e: any) {
+      toast.push(`Delete failed: ${e?.message ?? 'unknown error'}`, 'error')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -353,7 +390,7 @@ export function LiveAssignments({ results, onRecord }: Props) {
                       ) : null}
                     </div>
                   </div>
-                  <div className="shrink-0 w-full sm:w-auto">
+                  <div className="shrink-0 w-full sm:w-auto flex items-center gap-2">
                     {submitted ? (
                       <button
                         onClick={() =>
@@ -363,7 +400,7 @@ export function LiveAssignments({ results, onRecord }: Props) {
                             case_number: a.case_number,
                           })
                         }
-                        className="cyber-btn cyber-btn-ghost text-[0.6rem] w-full sm:w-auto"
+                        className="cyber-btn cyber-btn-ghost text-[0.6rem] flex-1 sm:flex-none"
                         title="Edit the recorded submission"
                       >
                         Edit score
@@ -377,11 +414,24 @@ export function LiveAssignments({ results, onRecord }: Props) {
                             case_number: a.case_number,
                           })
                         }
-                        className="cyber-btn cyber-btn-primary text-[0.6rem] w-full sm:w-auto"
+                        className="cyber-btn cyber-btn-primary text-[0.6rem] flex-1 sm:flex-none"
                       >
                         <Stamp size={12} /> Record score
                       </button>
                     )}
+                    <button
+                      onClick={() => deleteAssignment(a)}
+                      disabled={deleting === a.id}
+                      className="shrink-0 p-1.5 rounded-md border border-white/10 text-slate-400 hover:text-cyber-danger hover:border-cyber-danger/60 transition-colors disabled:opacity-40"
+                      aria-label={`Delete ${a.team_name} on Case ${labelFor(a.case_number)}`}
+                      title={
+                        submitted
+                          ? 'Delete assignment + recorded result'
+                          : 'Delete assignment'
+                      }
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               </li>

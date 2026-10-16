@@ -352,6 +352,13 @@ drop policy if exists results_delete_admin on public.results;
 create policy results_delete_admin on public.results
   for delete to authenticated using (public.is_investigator());
 
+-- team_assignments: admins / coordinators may delete rows directly (used by
+-- the Control Room to clear test spins). INSERT / UPDATE stay closed so new
+-- rows must still go through assign_case() with its guards.
+drop policy if exists team_assignments_delete_admin on public.team_assignments;
+create policy team_assignments_delete_admin on public.team_assignments
+  for delete to authenticated using (public.is_investigator());
+
 -- =============================================================================
 -- Bootstrap note
 -- -----------------------------------------------------------------------------
