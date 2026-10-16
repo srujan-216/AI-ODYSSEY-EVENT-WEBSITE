@@ -28,19 +28,20 @@ export interface CaseConfig {
   difficulty: Difficulty
 }
 
-export const CASE_COUNT = 7
-export const EASY_COUNT = 5
+export const CASE_COUNT = 8
+export const EASY_COUNT = 6
 export const HARD_COUNT = 2
 
-/** case_number → label + title. 1..5 easy, 6..7 hard. */
+/** case_number → label + title. 1..6 easy, 7..8 hard. */
 const CATALOG: Record<number, { label: string; title: string; difficulty: Difficulty }> = {
   1: { label: 'E1', title: 'Easy Case · 01', difficulty: 'easy' },
   2: { label: 'E2', title: 'Easy Case · 02', difficulty: 'easy' },
   3: { label: 'E3', title: 'Easy Case · 03', difficulty: 'easy' },
   4: { label: 'E4', title: 'Easy Case · 04', difficulty: 'easy' },
   5: { label: 'E5', title: 'Easy Case · 05', difficulty: 'easy' },
-  6: { label: 'H1', title: 'Hard Case · 01', difficulty: 'hard' },
-  7: { label: 'H2', title: 'Hard Case · 02', difficulty: 'hard' },
+  6: { label: 'E6', title: 'Easy Case · 06', difficulty: 'easy' },
+  7: { label: 'H1', title: 'Hard Case · 01', difficulty: 'hard' },
+  8: { label: 'H2', title: 'Hard Case · 02', difficulty: 'hard' },
 }
 
 export function difficultyFor(caseNumber: number): Difficulty {
@@ -107,7 +108,7 @@ export const TRACK_LABEL: Record<Track, string> = {
 
 export const TRACK_DESCRIPTION: Record<Track, string> = {
   junior:
-    'For 1st and 2nd-year investigators. Five easy cases, dealt by the spin wheel. One case active at a time — hand the report in before spinning again.',
+    'For 1st and 2nd-year investigators. Six easy cases, dealt by the spin wheel. One case active at a time — hand the report in before spinning again.',
   senior:
     'For 3rd and 4th-year investigators. Two hard cases, dealt by the coin toss. One case active at a time — hand the report in before tossing again.',
 }

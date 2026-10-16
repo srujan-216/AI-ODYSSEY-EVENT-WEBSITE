@@ -56,7 +56,7 @@ create table if not exists public.team_assignments (
   team_name        text not null check (char_length(team_name) between 2 and 60),
   team_name_lower  text generated always as (lower(team_name)) stored,
   track            text not null check (track in ('junior','senior')),
-  case_number      int  not null check (case_number between 1 and 7),
+  case_number      int  not null check (case_number between 1 and 8),
   difficulty       text check (difficulty is null or difficulty in ('easy','hard')),
   assigned_at      timestamptz not null default now()
 );
@@ -98,15 +98,15 @@ begin
   if p_track not in ('junior','senior') then
     raise exception 'track must be junior or senior';
   end if;
-  if p_case_number is not null and (p_case_number < 1 or p_case_number > 7) then
-    raise exception 'Requested case_number must be between 1 and 7';
+  if p_case_number is not null and (p_case_number < 1 or p_case_number > 8) then
+    raise exception 'Requested case_number must be between 1 and 8';
   end if;
 
-  -- Each track has one pool. Junior = 1..5 (easy); Senior = 6..7 (hard).
+  -- Each track has one pool. Junior = 1..6 (easy, E1..E6); Senior = 7..8 (hard, H1..H2).
   if p_track = 'junior' then
-    v_lo := 1; v_hi := 5; v_diff := 'easy';
+    v_lo := 1; v_hi := 6; v_diff := 'easy';
   else
-    v_lo := 6; v_hi := 7; v_diff := 'hard';
+    v_lo := 7; v_hi := 8; v_diff := 'hard';
   end if;
 
   perform pg_advisory_xact_lock(hashtext(lower(v_name) || ':' || p_track));
@@ -191,7 +191,7 @@ create table if not exists public.results (
   team_name       text not null check (char_length(team_name) between 1 and 60),
   team_name_lower text generated always as (lower(team_name)) stored,
   track           text not null check (track in ('junior','senior')),
-  case_number     int  not null check (case_number between 1 and 7),
+  case_number     int  not null check (case_number between 1 and 8),
   difficulty      text check (difficulty is null or difficulty in ('easy','hard')),
   score           int  not null check (score >= 0 and score <= 100000),
   completion_time timestamptz,

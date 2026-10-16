@@ -1,11 +1,11 @@
 # Case brief PDFs
 
-Seven case briefs — one PDF per case, served verbatim by Vite from `public/`.
+Eight case briefs — one PDF per case, served verbatim by Vite from `public/`.
 
 Each track runs its own dedicated pool:
 
-- **Junior · "The Mystery Squad"** — 5 easy cases, spin wheel.
-  `e1.pdf` … `e5.pdf`
+- **Junior · "The Mystery Squad"** — 6 easy cases, spin wheel.
+  `e1.pdf` … `e6.pdf`
 - **Senior · "The Mystery Masters"** — 2 hard cases, coin toss.
   `h1.pdf`, `h2.pdf`
 
@@ -17,6 +17,7 @@ public/cases/e2.pdf
 public/cases/e3.pdf
 public/cases/e4.pdf
 public/cases/e5.pdf
+public/cases/e6.pdf
 public/cases/h1.pdf
 public/cases/h2.pdf
 ```
@@ -28,7 +29,7 @@ public/cases/h2.pdf
 
 The DB stores a numeric `case_number`:
 
-- 1..5 → easy pool, junior track only
-- 6..7 → hard pool, senior track only
+- 1..6 → easy pool, junior track only
+- 7..8 → hard pool, senior track only
 
 `assign_case()` on the server enforces the track → pool boundary.

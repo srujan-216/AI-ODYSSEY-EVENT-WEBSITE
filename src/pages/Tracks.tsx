@@ -44,13 +44,13 @@ export function Tracks() {
             unit="Unit · 01"
             name="The Mystery Squad"
             years="1st & 2nd Year"
-            cases={5}
-            easy={5}
+            cases={6}
+            easy={6}
             hard={0}
             mechanism="spin wheel"
             tone="cyan"
             tagline="Entry grade"
-            desc="Five easy cases, dealt by the spin wheel. Clean reasoning, well-defined evidence."
+            desc="Six easy cases, dealt by the spin wheel. Clean reasoning, well-defined evidence."
             stamp="Open"
             rotate="sm:-rotate-2"
           />
