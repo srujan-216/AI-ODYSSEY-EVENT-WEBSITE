@@ -1,4 +1,5 @@
 import { FormEvent, forwardRef, useImperativeHandle, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock, Stamp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { ResultRow, Track } from '../lib/types'
@@ -87,13 +88,14 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
 
   useImperativeHandle(ref, () => ({
     startWithPrefill: (prefill) => {
-      // Look up any existing result for this team+track+case so edits
-      // overlay the existing row instead of creating a duplicate.
+      // Normalise case_number — realtime payloads sometimes arrive as strings
+      // which breaks strict-equality lookups against the local rows cache.
+      const caseN = Number(prefill.case_number)
       const existing = rows.find(
         (r) =>
           r.team_name.toLowerCase() === prefill.team_name.toLowerCase() &&
           r.track === prefill.track &&
-          r.case_number === prefill.case_number,
+          r.case_number === caseN,
       )
       if (existing) {
         // Editing an existing recorded submission — keep the full form.
@@ -104,15 +106,13 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
           ...buildEmpty(),
           team_name: prefill.team_name,
           track: prefill.track,
-          case_number: prefill.case_number,
+          case_number: caseN,
           completion_time: nowLocalDatetimeInput(),
           quick: true,
         })
       }
-      // Scroll the modal into view on mobile — the editor is below the fold.
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      })
+      // No auto-scroll: the modal is portalled to document.body and fixed to
+      // the viewport, so it's visible wherever the admin currently is.
     },
   }))
 
@@ -364,8 +364,8 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
         </table>
       </div>
 
-      {editing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 grid place-items-center p-4 overflow-y-auto">
+      {editing && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[90] grid place-items-center p-4 overflow-y-auto">
           <form
             onSubmit={save}
             className="glass-strong rounded-2xl p-5 sm:p-6 w-full max-w-lg my-auto"
@@ -586,7 +586,8 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
               </button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
