@@ -288,7 +288,7 @@ export function Leaderboard() {
                         {/* 4. CASES SOLVED */}
                         <td className="py-2 px-3 text-center font-mono font-bold text-xs text-cyan-400">
                           {entry ? (
-                            <span>{entry.cases_solved} / 6</span>
+                            <span>{entry.cases_solved} / 7</span>
                           ) : (
                             <span className="text-slate-500/70 font-mono text-sm">—</span>
                           )}

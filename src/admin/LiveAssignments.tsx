@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Clock, Radio, Stamp, Users } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { ResultRow, TeamAssignment, Track } from '../lib/types'
-import { difficultyFor, TRACK_LABEL } from '../lib/cases'
+import { difficultyFor, labelFor, TRACK_LABEL } from '../lib/cases'
 
 interface Props {
   results: ResultRow[]
@@ -203,8 +203,8 @@ export function LiveAssignments({ results, onRecord }: Props) {
                 className="border-t border-white/5 first:border-t-0 hover:bg-cyber-cyan/[0.04] transition-colors"
               >
                 <div className="flex items-start gap-3 p-3 sm:p-4 flex-wrap sm:flex-nowrap">
-                  <div className="shrink-0 w-9 h-9 rounded-md border border-cyber-cyan/40 bg-cyber-cyan/5 grid place-items-center font-mono text-xs text-cyber-cyan tabular-nums">
-                    0{a.case_number}
+                  <div className="shrink-0 w-10 h-10 rounded-md border border-cyber-cyan/40 bg-cyber-cyan/5 grid place-items-center font-mono text-xs text-cyber-cyan tabular-nums">
+                    {labelFor(a.case_number)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

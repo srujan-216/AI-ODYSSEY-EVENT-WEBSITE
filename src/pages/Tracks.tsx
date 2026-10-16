@@ -44,8 +44,8 @@ export function Tracks() {
             unit="Unit · 01"
             name="The Mystery Squad"
             years="1st & 2nd Year"
-            cases={6}
-            easy={4}
+            cases={7}
+            easy={5}
             hard={2}
             tone="cyan"
             tagline="Entry grade"
@@ -58,8 +58,8 @@ export function Tracks() {
             unit="Unit · 02"
             name="The Mystery Masters"
             years="3rd & 4th Year"
-            cases={6}
-            easy={4}
+            cases={7}
+            easy={5}
             hard={2}
             tone="red"
             tagline="Adversarial grade"

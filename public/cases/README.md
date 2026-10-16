@@ -1,24 +1,26 @@
 # Case brief PDFs
 
-Drop case PDFs into this folder. There are **six case briefs total**,
-shared across both tracks (Junior and Senior open the same PDF for a given
-case number). The paths the website expects are:
+Seven case briefs, shared across both tracks (Junior and Senior open the
+same PDF for a given case). Split into two pools:
+
+- **Easy** — spin the wheel. 5 cases: `e1.pdf` … `e5.pdf`
+- **Hard** — toss the coin. 2 cases: `h1.pdf`, `h2.pdf`
 
 ```
-public/cases/case-01.pdf   -> /cases/case-01.pdf
-public/cases/case-02.pdf
-public/cases/case-03.pdf
-public/cases/case-04.pdf
-public/cases/case-05.pdf
-public/cases/case-06.pdf
+public/cases/e1.pdf   -> /cases/e1.pdf
+public/cases/e2.pdf
+public/cases/e3.pdf
+public/cases/e4.pdf
+public/cases/e5.pdf
+public/cases/h1.pdf
+public/cases/h2.pdf
 ```
 
-- File names must be `case-NN.pdf` where `NN` is zero-padded (`case-01.pdf`
-  through `case-06.pdf`).
-- Files in `public/` are served verbatim by Vite — the dashboard's
-  "Open sealed PDF" button hits them directly in a new tab.
+- Filenames must be lower-case (`e1.pdf` … `h2.pdf`). The frontend builds
+  the URL from `label.toLowerCase() + '.pdf'`.
+- `public/` is served verbatim by Vite — the dashboard's "Open sealed PDF"
+  button links to these paths directly.
 - To rename, move, or point at a different URL, edit `src/lib/cases.ts` —
-  the `pdfPath` field for each case is the only place the paths live.
+  the `CATALOG` map there is the single source of truth.
 
-Until a PDF is uploaded the button opens an empty 404, which is a signal
-to the organising team that a case file still needs to be dropped in.
+The DB stores a numeric `case_number`: 1..5 → easy, 6..7 → hard.

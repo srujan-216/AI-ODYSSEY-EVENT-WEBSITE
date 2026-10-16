@@ -2,7 +2,7 @@ import { FormEvent, forwardRef, useImperativeHandle, useMemo, useState } from 'r
 import { Pencil, Plus, Save, Search, Trash2, X, Loader2, CheckCircle2, Clock, Stamp } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { ResultRow, Track } from '../lib/types'
-import { TRACK_LABEL, CASE_COUNT, difficultyFor } from '../lib/cases'
+import { TRACK_LABEL, CASE_COUNT, difficultyFor, labelFor } from '../lib/cases'
 import { useToast } from '../components/Toast'
 
 const CASE_NUMBERS = Array.from({ length: CASE_COUNT }, (_, i) => i + 1)
@@ -184,7 +184,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
 
   const remove = async (r: ResultRow) => {
     const ok = window.confirm(
-      `Delete result for "${r.team_name}" on ${TRACK_LABEL[r.track]} (Case ${r.case_number})?\nThis cannot be undone.`,
+      `Delete result for "${r.team_name}" on ${TRACK_LABEL[r.track]} (Case ${labelFor(r.case_number)})?\nThis cannot be undone.`,
     )
     if (!ok) return
     const { error } = await supabase.from('results').delete().eq('id', r.id)
@@ -274,7 +274,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                   </span>
                 </td>
                 <td className="py-2 px-3 font-mono text-xs text-cyber-cyan">
-                  Case 0{r.case_number}
+                  Case {labelFor(r.case_number)}
                 </td>
                 <td className="py-2 px-3">
                   {r.is_solved ? (
@@ -371,7 +371,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                     {TRACK_LABEL[editing.track]}
                   </span>
                   <span className="chip text-[0.6rem] font-mono">
-                    Case 0{editing.case_number}
+                    Case {labelFor(editing.case_number)}
                   </span>
                 </div>
                 <p className="text-[0.6rem] text-slate-500 mt-1 font-mono tracking-widest uppercase">
@@ -423,7 +423,7 @@ export const ResultsEditor = forwardRef<ResultsEditorHandle, Props>(function Res
                       >
                         {CASE_NUMBERS.map((c) => (
                           <option key={c} value={c}>
-                            Case 0{c}
+                            Case {labelFor(c)}
                           </option>
                         ))}
                       </select>
