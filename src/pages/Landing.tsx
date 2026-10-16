@@ -5,6 +5,7 @@ import { useGlobalParallax } from '../lib/hooks'
 import { HeroTitle } from '../components/HeroTitle'
 import { TitleAnnotations } from '../components/TitleAnnotations'
 import { HeroMagnifier } from '../components/HeroMagnifier'
+import { DeadlineCountdown } from '../components/DeadlineCountdown'
 
 /**
  * Landing — cinematic detective board.
@@ -136,7 +137,7 @@ export function Landing() {
                 />
               </motion.svg>
 
-              {/* Schedule badge — 6 HOURS & 10:30 AM – 03:00 PM */}
+              {/* Schedule badge — half-day window + live countdown */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -152,6 +153,16 @@ export function Landing() {
                 <span className="text-stone-200 tabular-nums">
                   10:30&nbsp;AM – 04:00&nbsp;PM&nbsp;deadline
                 </span>
+              </motion.div>
+
+              {/* Live countdown — the one number the whole hall is watching */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 3.2 }}
+                className="mt-4 max-w-md"
+              >
+                <DeadlineCountdown variant="panel" label="Report deadline" />
               </motion.div>
 
               {/* Description */}

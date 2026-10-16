@@ -16,6 +16,7 @@ import { useResults } from '../admin/useResults'
 import { ResultsUploader } from '../admin/ResultsUploader'
 import { ResultsEditor, type ResultsEditorHandle } from '../admin/ResultsEditor'
 import { LiveAssignments } from '../admin/LiveAssignments'
+import { DeadlineCountdown } from '../components/DeadlineCountdown'
 import { TRACK_LABEL, labelFor, titleFor } from '../lib/cases'
 import { useCountUp, useTilt } from '../lib/hooks'
 
@@ -87,6 +88,11 @@ function AdminInner() {
             {new Date().toISOString().slice(11, 19)}Z
           </span>
         </div>
+      </div>
+
+      {/* Deadline countdown — the single number coordinators need at a glance */}
+      <div className="mt-4">
+        <DeadlineCountdown variant="panel" label="Report deadline" />
       </div>
 
       {/* Evaluation rubric — visible so coordinators enter scores on the right axis */}

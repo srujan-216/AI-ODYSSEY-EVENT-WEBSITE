@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import type { LeaderboardEntry } from '../lib/types'
 import { TRACK_LABEL, TRACK_POOL_SIZE } from '../lib/cases'
+import { DeadlineCountdown } from '../components/DeadlineCountdown'
 
 export function Leaderboard() {
   const [rows, setRows] = useState<LeaderboardEntry[]>([])
@@ -214,6 +215,11 @@ export function Leaderboard() {
 
           {/* Horizontal Accent Line under Banner with Center Glow */}
           <div className="w-[85%] h-[2px] bg-gradient-to-r from-transparent via-cyan-400/90 to-transparent mt-2 shadow-[0_0_12px_#00f0ff]" />
+
+          {/* Live countdown — the one time the whole hall watches */}
+          <div className="mt-3">
+            <DeadlineCountdown label="Report deadline" />
+          </div>
         </div>
 
         {/* ── MAIN CONSOLE TABLE: SCI-FI HUD FRAME ── */}

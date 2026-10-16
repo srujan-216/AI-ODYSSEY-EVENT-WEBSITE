@@ -15,11 +15,11 @@ import {
 } from 'lucide-react'
 import { Wheel, computeTargetRotation } from '../components/Wheel'
 import { CoinToss } from '../components/CoinToss'
+import { DeadlineCountdown } from '../components/DeadlineCountdown'
 import {
   getCase,
   getCases,
   labelFor,
-  REPORT_DEADLINE_LABEL,
   REPORT_DEADLINE_SHORT,
   TRACK_DESCRIPTION,
   TRACK_DIFFICULTY,
@@ -271,7 +271,7 @@ function DashboardFor({ track }: { track: Track }) {
         {/* ────── CASE HEADER ────── */}
         <div className="flex items-start justify-between flex-wrap gap-4 sm:gap-6 mb-10">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-x-3 gap-y-1 text-[0.6rem] sm:text-[0.65rem] font-mono tracking-[0.3em] uppercase text-stone-400 flex-wrap">
+            <div className="flex items-center gap-x-3 gap-y-2 text-[0.6rem] sm:text-[0.65rem] font-mono tracking-[0.3em] uppercase text-stone-400 flex-wrap">
               <span className="w-2 h-2 bg-red-500 rounded-full breath" />
               <span>Case intake</span>
               <span className="text-stone-600 hidden sm:inline">/</span>
@@ -282,10 +282,7 @@ function DashboardFor({ track }: { track: Track }) {
               <span>
                 {poolSize} {trackDifficulty} {poolSize === 1 ? 'case' : 'cases'}
               </span>
-              <span className="text-stone-600 hidden sm:inline">/</span>
-              <span className="text-amber-400">
-                Reports due {REPORT_DEADLINE_LABEL}
-              </span>
+              <DeadlineCountdown label="Report in" className="normal-case" />
             </div>
             <h1 className="font-serif italic text-stone-50 text-3xl sm:text-4xl md:text-5xl mt-3 leading-[1.05]">
               Investigation <span className="scribble">dashboard</span>.
